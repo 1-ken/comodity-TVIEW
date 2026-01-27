@@ -76,12 +76,102 @@ app = FastAPI(
 )
 
 observer: SiteObserver | None = None
+active_websockets: set[WebSocket] = set()
+background_task: asyncio.Task | None = None
+shutdown_event = asyncio.Event()
+
+
+async def background_monitoring_task():
+    """Background task that continuously monitors prices and checks alerts.
+    Runs independently of WebSocket connections.
+    """
+    logger.info("Background monitoring task started")
+    
+    while not shutdown_event.is_set():
+        try:
+            if not observer:
+                logger.warning("Observer not ready, waiting...")
+                await asyncio.sleep(STREAM_INTERVAL)
+                continue
+            
+            # Get snapshot data
+            data = await observer.snapshot(SYMBOLS)
+            
+            # Check price alerts
+            triggered_alerts = alert_manager.check_alerts(data.get("pairs", []))
+            if triggered_alerts:
+                logger.info(f"Processing {len(triggered_alerts)} triggered alerts")
+                for alert_data in triggered_alerts:
+                    alert = alert_data["alert"]
+                    current_price = alert_data["current_price"]
+                    channel = alert.get("channel", "email")
+                    
+                    if channel == "sms" and sms_service and alert.get("phone"):
+                        try:
+                            sms_service.send_price_alert(
+                                to_phone=alert["phone"],
+                                pair=alert["pair"],
+                                target_price=alert["target_price"],
+                                current_price=current_price,
+                                condition=alert["condition"],
+                                custom_message=alert.get("custom_message", ""),
+                            )
+                            logger.info(f"SMS alert sent for {alert['pair']} to {alert['phone']}")
+                        except Exception as e:
+                            logger.error(f"Failed to send SMS alert: {e}")
+                    
+                    elif channel == "email" and email_service and alert.get("email"):
+                        try:
+                            email_service.send_price_alert(
+                                to_email=alert["email"],
+                                pair=alert["pair"],
+                                target_price=alert["target_price"],
+                                current_price=current_price,
+                                condition=alert["condition"],
+                                custom_message=alert.get("custom_message", ""),
+                            )
+                            logger.info(f"Email alert sent for {alert['pair']} to {alert['email']}")
+                        except Exception as e:
+                            logger.error(f"Failed to send email alert: {e}")
+            
+            # Include alerts in data for WebSocket clients
+            data["alerts"] = {
+                "active": [a.to_dict() for a in alert_manager.get_active_alerts()],
+                "triggered": [a.to_dict() for a in alert_manager.get_all_alerts() if a.status == "triggered"],
+            }
+            
+            # Broadcast to all connected WebSocket clients
+            if active_websockets:
+                disconnected = set()
+                for ws in active_websockets:
+                    try:
+                        await ws.send_json(data)
+                    except Exception as e:
+                        logger.debug(f"Failed to send to WebSocket client: {e}")
+                        disconnected.add(ws)
+                
+                # Remove disconnected clients
+                active_websockets.difference_update(disconnected)
+                if disconnected:
+                    logger.info(f"Removed {len(disconnected)} disconnected WebSocket clients")
+            
+            # Wait for next interval
+            await asyncio.sleep(STREAM_INTERVAL)
+            
+        except asyncio.CancelledError:
+            logger.info("Background monitoring task cancelled")
+            break
+        except Exception as e:
+            logger.error(f"Error in background monitoring task: {e}")
+            await asyncio.sleep(STREAM_INTERVAL)
+    
+    logger.info("Background monitoring task stopped")
 
 
 @app.on_event("startup")
 async def on_startup():
     """Initialize the observer on application startup."""
-    global observer
+    global observer, background_task
     logger.info("Starting Commodities Observer application...")
     
     try:
@@ -95,6 +185,11 @@ async def on_startup():
         )
         await observer.startup()
         logger.info("Commodities observer started successfully")
+        
+        # Start background monitoring task
+        background_task = asyncio.create_task(background_monitoring_task())
+        logger.info("Background monitoring task created")
+        
     except Exception as e:
         logger.error(f"Failed to start observer: {e}")
         raise
@@ -103,6 +198,20 @@ async def on_startup():
 @app.on_event("shutdown")
 async def on_shutdown():
     """Clean up resources on application shutdown."""
+    global background_task
+    
+    # Stop background task
+    logger.info("Stopping background monitoring task...")
+    shutdown_event.set()
+    if background_task:
+        background_task.cancel()
+        try:
+            await background_task
+        except asyncio.CancelledError:
+            pass
+        logger.info("Background monitoring task stopped")
+    
+    # Shutdown observer
     if observer:
         logger.info("Shutting down observer...")
         try:
@@ -146,7 +255,9 @@ async def snapshot():
 
 @app.websocket("/ws/observe")
 async def ws_observe(ws: WebSocket):
-    """WebSocket endpoint for streaming real-time commodities data."""
+    """WebSocket endpoint for streaming real-time commodities data.
+    Clients receive broadcasts from the background monitoring task.
+    """
     await ws.accept()
     logger.info(f"WebSocket connection established: {ws.client}")
     
@@ -156,49 +267,28 @@ async def ws_observe(ws: WebSocket):
         await ws.close()
         return
 
+    # Register this WebSocket client
+    active_websockets.add(ws)
+    logger.info(f"Active WebSocket clients: {len(active_websockets)}")
+    
     try:
+        # Keep connection alive and wait for disconnect
         while True:
-            data = await observer.snapshot(SYMBOLS)
+            # Just wait for messages from client (or disconnect)
+            # The background task handles broadcasting data
+            try:
+                await ws.receive_text()
+            except WebSocketDisconnect:
+                break
             
-            # Check price alerts
-            triggered_alerts = alert_manager.check_alerts(data.get("pairs", []))
-            if triggered_alerts:
-                for alert_data in triggered_alerts:
-                    alert = alert_data["alert"]
-                    current_price = alert_data["current_price"]
-                    channel = alert.get("channel", "email")
-                    if channel == "sms" and sms_service and alert.get("phone"):
-                        sms_service.send_price_alert(
-                            to_phone=alert["phone"],
-                            pair=alert["pair"],
-                            target_price=alert["target_price"],
-                            current_price=current_price,
-                            condition=alert["condition"],
-                            custom_message=alert.get("custom_message", ""),
-                        )
-                    elif channel == "email" and email_service and alert.get("email"):
-                        email_service.send_price_alert(
-                            to_email=alert["email"],
-                            pair=alert["pair"],
-                            target_price=alert["target_price"],
-                            current_price=current_price,
-                            condition=alert["condition"],
-                            custom_message=alert.get("custom_message", ""),
-                        )
-            
-            # Include alerts in response
-            data["alerts"] = {
-                "active": [a.to_dict() for a in alert_manager.get_active_alerts()],
-                "triggered": [a.to_dict() for a in alert_manager.get_all_alerts() if a.status == "triggered"],
-            }
-            
-            await ws.send_json(data)
-            await asyncio.sleep(STREAM_INTERVAL)
     except WebSocketDisconnect:
         logger.info(f"WebSocket connection closed: {ws.client}")
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
     finally:
+        # Unregister this WebSocket client
+        active_websockets.discard(ws)
+        logger.info(f"WebSocket client removed. Active clients: {len(active_websockets)}")
         try:
             await ws.close()
         except Exception:

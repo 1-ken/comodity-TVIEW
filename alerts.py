@@ -13,6 +13,41 @@ logger = logging.getLogger(__name__)
 
 ALERTS_FILE = "alerts.json"
 
+# Asset-specific tolerances for zero-tolerance market tracking
+ASSET_TOLERANCES = {
+    # Forex Pairs - very tight tolerance
+    "EURUSD": 0.0002,
+    "GBPUSD": 0.0002,
+    
+    # Commodities - exact match (±0.0)
+    "GOLD": 0.0,
+    "SILVER": 0.0,
+    "USOIL": 0.2,
+    
+    # Crypto - varies by asset
+    "BTCUSD": 50.0,
+    "BTCUSDT": 50.0,
+    "ETHUSD": 0.0,
+    "ETHUSDT": 0.0,
+    
+    # Indices - exact match (±0.0)
+    "SPX": 0.0,
+    "DJI": 0.0,
+    "NDQ": 0.0,
+    
+    # Stocks - varies by asset
+    "AAPL": 0.5,
+    "TSLA": 1.0,
+    "NFLX": 0.1,
+    
+    # Forex Indices
+    "DXY": 0.1,
+    "USDJPY": 0.5,
+    
+    # Volatility
+    "VIX": 0.1,
+}
+
 
 @dataclass
 class Alert:
@@ -144,10 +179,21 @@ class AlertManager:
             return True
         return False
 
+    @staticmethod
+    def _get_tolerance(pair: str) -> float:
+        """
+        Get asset-specific tolerance for price comparison.
+        Uses predefined tolerances for each asset type for zero-tolerance market tracking.
+        
+        Default tolerance if asset not in map: 0.01
+        """
+        return ASSET_TOLERANCES.get(pair, 0.01)
+
     def check_alerts(self, pairs_data: List[Dict[str, str]]) -> List[Dict[str, Any]]:
         """
         Check if any active alerts should be triggered.
         Returns list of triggered alerts with their data.
+        Uses intelligent rounding/tolerance based on price magnitude for accurate comparisons.
         """
         triggered = []
         
@@ -167,10 +213,14 @@ class AlertManager:
             elif alert.condition == "below" and current_price <= alert.target_price:
                 should_trigger = True
             elif alert.condition == "equal":
-                # Use tolerance of 0.0001 for "equal" condition (matches within 1 pip)
-                tolerance = 0.0001
+                # Use asset-specific tolerance for zero-tolerance market tracking
+                tolerance = self._get_tolerance(alert.pair)
                 if abs(current_price - alert.target_price) <= tolerance:
                     should_trigger = True
+                    logger.info(
+                        f"Equal alert triggered: {alert.pair} price={current_price:.6f} "
+                        f"target={alert.target_price:.6f} tolerance=±{tolerance:.6f}"
+                    )
             
             if should_trigger:
                 self.trigger_alert(alert.id, current_price)
