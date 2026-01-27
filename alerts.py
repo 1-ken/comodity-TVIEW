@@ -59,17 +59,34 @@ class Alert:
     status: str  # "active", "triggered", "disabled"
     created_at: str
     email: str = ""
-    channel: str = "email"  # "email" or "sms"
+    channels: List[str] = None  # ["email"] or ["sms"] or ["email", "sms"]
     phone: str = ""
     custom_message: str = ""
     triggered_at: Optional[str] = None
     last_checked_price: Optional[float] = None
-
+    
+    def __post_init__(self):
+        """Handle default value for channels list."""
+        if self.channels is None:
+            # Support both legacy 'channel' field and new 'channels' field for backward compatibility
+            self.channels = []
+    
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        data = asdict(self)
+        # Ensure channels is always a list for serialization
+        if not isinstance(data['channels'], list):
+            data['channels'] = [data['channels']] if data['channels'] else []
+        return data
 
     @staticmethod
     def from_dict(data: Dict[str, Any]) -> "Alert":
+        # Handle backward compatibility: convert single 'channel' to 'channels' list
+        if 'channel' in data and 'channels' not in data:
+            channel = data.pop('channel')
+            data['channels'] = [channel] if channel else []
+        elif 'channels' not in data:
+            data['channels'] = []
+        
         return Alert(**data)
 
 
@@ -123,11 +140,14 @@ class AlertManager:
         target_price: float,
         condition: str,
         email: str = "",
-        channel: str = "email",
+        channels: List[str] = None,
         phone: str = "",
         custom_message: str = "",
     ) -> Alert:
         """Create a new alert."""
+        if channels is None:
+            channels = ["email"]
+        
         alert_id = str(uuid.uuid4())
         alert = Alert(
             id=alert_id,
@@ -135,7 +155,7 @@ class AlertManager:
             target_price=target_price,
             condition=condition,
             email=email,
-            channel=channel,
+            channels=channels,
             phone=phone,
             custom_message=custom_message,
             status="active",
@@ -143,7 +163,7 @@ class AlertManager:
         )
         self.alerts[alert_id] = alert
         self._save_alerts()
-        logger.info(f"Created alert {alert_id} for {pair} at {target_price}")
+        logger.info(f"Created alert {alert_id} for {pair} at {target_price} via {channels}")
         return alert
 
     def get_alert(self, alert_id: str) -> Optional[Alert]:

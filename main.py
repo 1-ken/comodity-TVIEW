@@ -4,7 +4,7 @@ import logging
 import os
 import time
 import certifi
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
@@ -104,9 +104,10 @@ async def background_monitoring_task():
                 for alert_data in triggered_alerts:
                     alert = alert_data["alert"]
                     current_price = alert_data["current_price"]
-                    channel = alert.get("channel", "email")
+                    channels = alert.get("channels", [])
                     
-                    if channel == "sms" and sms_service and alert.get("phone"):
+                    # Send via SMS if configured
+                    if "sms" in channels and sms_service and alert.get("phone"):
                         try:
                             sms_service.send_price_alert(
                                 to_phone=alert["phone"],
@@ -120,7 +121,8 @@ async def background_monitoring_task():
                         except Exception as e:
                             logger.error(f"Failed to send SMS alert: {e}")
                     
-                    elif channel == "email" and email_service and alert.get("email"):
+                    # Send via Email if configured
+                    if "email" in channels and email_service and alert.get("email"):
                         try:
                             email_service.send_price_alert(
                                 to_email=alert["email"],
@@ -301,10 +303,10 @@ class CreateAlertRequest(BaseModel):
     pair: str
     target_price: float
     condition: str  # "above", "below", or "equal"
-    channel: str = "email"  # "email" or "sms"
+    channels: List[str] = ["email"]  # ["email"], ["sms"], or ["email", "sms"]
     email: str = ""
     phone: str = ""
-    custom_message: str = ""  # Optional custom message for the alert email
+    custom_message: str = ""  # Optional custom message for the alert
 
 
 @app.post("/api/alerts")
@@ -313,11 +315,16 @@ async def create_alert(request: CreateAlertRequest):
     if request.condition not in ["above", "below", "equal"]:
         raise HTTPException(status_code=400, detail="Condition must be 'above', 'below', or 'equal'")
     
-    if request.channel not in ["email", "sms"]:
-        raise HTTPException(status_code=400, detail="Channel must be 'email' or 'sms'")
-    if request.channel == "email" and not request.email:
+    if not request.channels:
+        raise HTTPException(status_code=400, detail="At least one channel (email or sms) must be selected")
+    
+    invalid_channels = set(request.channels) - {"email", "sms"}
+    if invalid_channels:
+        raise HTTPException(status_code=400, detail=f"Invalid channels: {invalid_channels}. Must be 'email' or 'sms'")
+    
+    if "email" in request.channels and not request.email:
         raise HTTPException(status_code=400, detail="Email is required for email alerts")
-    if request.channel == "sms" and not request.phone:
+    if "sms" in request.channels and not request.phone:
         raise HTTPException(status_code=400, detail="Phone is required for SMS alerts")
 
     alert = alert_manager.create_alert(
@@ -325,7 +332,7 @@ async def create_alert(request: CreateAlertRequest):
         target_price=request.target_price,
         condition=request.condition,
         email=request.email,
-        channel=request.channel,
+        channels=request.channels,
         phone=request.phone,
         custom_message=request.custom_message,
     )

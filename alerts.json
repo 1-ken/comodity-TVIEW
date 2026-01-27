@@ -7,11 +7,13 @@
     "status": "active",
     "created_at": "2026-01-26T19:11:08.280932",
     "email": "",
-    "channel": "sms",
+    "channels": [
+      "sms"
+    ],
     "phone": "+254737778111",
     "custom_message": "test",
     "triggered_at": null,
-    "last_checked_price": 88111.21
+    "last_checked_price": 88462.45
   },
   "396b969b-be21-48c7-9119-3f02f9f39851": {
     "id": "396b969b-be21-48c7-9119-3f02f9f39851",
@@ -21,7 +23,9 @@
     "status": "triggered",
     "created_at": "2026-01-26T19:11:47.197496",
     "email": "",
-    "channel": "sms",
+    "channels": [
+      "sms"
+    ],
     "phone": "+254737778111",
     "custom_message": "test 2",
     "triggered_at": "2026-01-27T18:39:36.198269",
@@ -35,7 +39,9 @@
     "status": "triggered",
     "created_at": "2026-01-26T19:12:50.527047",
     "email": "",
-    "channel": "sms",
+    "channels": [
+      "sms"
+    ],
     "phone": "+254737778111",
     "custom_message": "euro test",
     "triggered_at": "2026-01-26T19:12:51.124040",
@@ -49,7 +55,9 @@
     "status": "triggered",
     "created_at": "2026-01-26T20:33:39.026764",
     "email": "",
-    "channel": "sms",
+    "channels": [
+      "sms"
+    ],
     "phone": "+254737778111",
     "custom_message": "ttttttt",
     "triggered_at": "2026-01-26T20:35:33.262784",
@@ -63,7 +71,9 @@
     "status": "triggered",
     "created_at": "2026-01-27T18:26:50.089721",
     "email": "",
-    "channel": "sms",
+    "channels": [
+      "sms"
+    ],
     "phone": "+254737778111",
     "custom_message": "test",
     "triggered_at": "2026-01-27T18:37:45.615848",
@@ -77,7 +87,9 @@
     "status": "triggered",
     "created_at": "2026-01-27T18:28:43.800738",
     "email": "",
-    "channel": "sms",
+    "channels": [
+      "sms"
+    ],
     "phone": "+254737778111",
     "custom_message": "Dolorem sit tenetur",
     "triggered_at": "2026-01-27T18:37:45.617036",
@@ -91,11 +103,13 @@
     "status": "active",
     "created_at": "2026-01-27T18:59:57.227712",
     "email": "",
-    "channel": "sms",
+    "channels": [
+      "sms"
+    ],
     "phone": "+254737778111",
     "custom_message": "ljhfxv",
     "triggered_at": null,
-    "last_checked_price": 5089.219
+    "last_checked_price": 5096.935
   },
   "2d5598d4-4def-41aa-995b-7d00dd8a0fce": {
     "id": "2d5598d4-4def-41aa-995b-7d00dd8a0fce",
@@ -105,11 +119,13 @@
     "status": "active",
     "created_at": "2026-01-27T19:00:27.301071",
     "email": "",
-    "channel": "sms",
+    "channels": [
+      "sms"
+    ],
     "phone": "+254737778111",
     "custom_message": "",
     "triggered_at": null,
-    "last_checked_price": 5089.219
+    "last_checked_price": 5096.935
   },
   "8505c798-1a4e-4242-9489-2b35abf576b1": {
     "id": "8505c798-1a4e-4242-9489-2b35abf576b1",
@@ -119,10 +135,46 @@
     "status": "triggered",
     "created_at": "2026-01-27T19:01:11.221557",
     "email": "kennicmwimu@gmail.com",
-    "channel": "email",
+    "channels": [
+      "email"
+    ],
     "phone": "",
     "custom_message": "",
     "triggered_at": "2026-01-27T19:01:55.957432",
     "last_checked_price": 5089.219
+  },
+  "fe7401ae-6eb0-4d53-9335-bfd10a216d46": {
+    "id": "fe7401ae-6eb0-4d53-9335-bfd10a216d46",
+    "pair": "USOIL",
+    "target_price": 62.0,
+    "condition": "above",
+    "status": "active",
+    "created_at": "2026-01-27T19:24:43.007058",
+    "email": "kennicmwimu@gmail.com",
+    "channels": [
+      "email",
+      "sms"
+    ],
+    "phone": "+254737778111",
+    "custom_message": "waah",
+    "triggered_at": null,
+    "last_checked_price": 61.81
+  },
+  "8c551b80-0c4e-4460-90dc-761ba734558b": {
+    "id": "8c551b80-0c4e-4460-90dc-761ba734558b",
+    "pair": "USOIL",
+    "target_price": 62.0,
+    "condition": "equal",
+    "status": "triggered",
+    "created_at": "2026-01-27T19:25:04.820549",
+    "email": "kennicmwimu@gmail.com",
+    "channels": [
+      "email",
+      "sms"
+    ],
+    "phone": "+254737778111",
+    "custom_message": "ihlhjljl",
+    "triggered_at": "2026-01-27T19:25:40.782308",
+    "last_checked_price": 61.81
   }
 }

@@ -76,12 +76,18 @@
               </div>
               <div class="form-group">
                 <label>Delivery Method:</label>
-                <select id="alertChannel" required onchange="toggleContactFields()">
-                  <option value="email">Email</option>
-                  <option value="sms">SMS</option>
-                </select>
+                <div style="display: flex; gap: 15px; margin-top: 8px;">
+                  <label style="display: flex; align-items: center; font-weight: normal; cursor: pointer;">
+                    <input type="checkbox" id="channelEmail" onchange="toggleContactFields()" style="width: auto; margin-right: 8px;" />
+                    📧 Email
+                  </label>
+                  <label style="display: flex; align-items: center; font-weight: normal; cursor: pointer;">
+                    <input type="checkbox" id="channelSms" onchange="toggleContactFields()" style="width: auto; margin-right: 8px;" />
+                    📱 SMS
+                  </label>
+                </div>
               </div>
-              <div class="form-group" id="emailField">
+              <div class="form-group" id="emailField" style="display:none;">
                 <label>Email Address:</label>
                 <input type="email" id="alertEmail" placeholder="your@email.com" />
               </div>
@@ -192,8 +198,14 @@
           <div class="alert-item">
             <div><strong style="font-size: 1.1em;">${a.pair}</strong></div>
             <div style="margin: 8px 0; font-size: 0.95em;">Alert when price <strong>${a.condition}</strong> <strong style="color: #007bff;">${a.target_price}</strong></div>
-            ${a.channel === 'sms' ? `<div style="font-size: 0.85em; color: #666; margin-bottom: 10px;">📱 ${a.phone}</div>` : `<div style="font-size: 0.85em; color: #666; margin-bottom: 10px;">📧 ${a.email}</div>`}
             ${a.custom_message ? `<div style="background-color: #fff3cd; border-left: 3px solid #ffc107; padding: 8px; margin: 8px 0; font-size: 0.9em; border-radius: 3px;"><strong>Message:</strong> ${a.custom_message}</div>` : ''}
+            <div style="font-size: 0.85em; color: #666; margin-bottom: 8px;">
+              ${Array.isArray(a.channels) && a.channels.includes('email') ? '📧 Email' : ''}
+              ${Array.isArray(a.channels) && a.channels.includes('email') && a.channels.includes('sms') ? ' + ' : ''}
+              ${Array.isArray(a.channels) && a.channels.includes('sms') ? '📱 SMS' : ''}
+              ${Array.isArray(a.channels) && a.channels.includes('sms') ? ` (${a.phone})` : ''}
+              ${Array.isArray(a.channels) && a.channels.includes('email') ? ` (${a.email})` : ''}
+            </div>
             <div style="margin-top: 10px;">
               <button class="danger" onclick="deleteAlert('${a.id}')" style="width: 100%; padding: 8px;">Delete Alert</button>
             </div>
@@ -286,24 +298,50 @@
         }
         
         const condition = document.getElementById('alertCondition').value;
-        const channel = document.getElementById('alertChannel').value;
+        
+        // Get selected channels
+        const emailChecked = document.getElementById('channelEmail').checked;
+        const smsChecked = document.getElementById('channelSms').checked;
+        
+        // Validate at least one channel selected
+        if (!emailChecked && !smsChecked) {
+          alert('Please select at least one delivery method (Email or SMS)');
+          return;
+        }
+        
+        const channels = [];
+        if (emailChecked) channels.push('email');
+        if (smsChecked) channels.push('sms');
+        
         const email = document.getElementById('alertEmail').value;
         const phone = document.getElementById('alertPhone').value;
         const customMessage = document.getElementById('alertMessage').value || '';
+
+        // Validate contact info based on selected channels
+        if (emailChecked && !email) {
+          alert('Email address is required for email alerts');
+          return;
+        }
+        if (smsChecked && !phone) {
+          alert('Phone number is required for SMS alerts');
+          return;
+        }
 
         try {
           const response = await fetch('/api/alerts', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pair, target_price: targetPrice, condition, channel, email, phone, custom_message: customMessage })
+            body: JSON.stringify({ pair, target_price: targetPrice, condition, channels, email, phone, custom_message: customMessage })
           });
           
           if (response.ok) {
             alert('✅ Alert created successfully!');
             document.getElementById('alertForm').reset();
+            document.getElementById('channelEmail').checked = true;
             toggleContactFields(); // Reset visibility
           } else {
-            alert('❌ Failed to create alert');
+            const error = await response.json();
+            alert(`❌ Failed to create alert: ${error.detail || 'Unknown error'}`);
           }
         } catch (error) {
           alert(`Error: ${error.message}`);
@@ -329,16 +367,13 @@
       }
 
       function toggleContactFields() {
-        const channel = document.getElementById('alertChannel').value;
+        const emailChecked = document.getElementById('channelEmail').checked;
+        const smsChecked = document.getElementById('channelSms').checked;
         const emailField = document.getElementById('emailField');
         const phoneField = document.getElementById('phoneField');
-        if (channel === 'sms') {
-          emailField.style.display = 'none';
-          phoneField.style.display = 'block';
-        } else {
-          emailField.style.display = 'block';
-          phoneField.style.display = 'none';
-        }
+        
+        emailField.style.display = emailChecked ? 'block' : 'none';
+        phoneField.style.display = smsChecked ? 'block' : 'none';
       }
       
       // Initialize
