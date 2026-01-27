@@ -1,0 +1,58 @@
+{
+  "53e9af37-9ce1-4284-8060-1d9344bd24a8": {
+    "id": "53e9af37-9ce1-4284-8060-1d9344bd24a8",
+    "pair": "BTCUSDT",
+    "target_price": 87320.0,
+    "condition": "equal",
+    "status": "active",
+    "created_at": "2026-01-26T19:11:08.280932",
+    "email": "",
+    "channel": "sms",
+    "phone": "+254737778111",
+    "custom_message": "test",
+    "triggered_at": null,
+    "last_checked_price": 87380.52
+  },
+  "396b969b-be21-48c7-9119-3f02f9f39851": {
+    "id": "396b969b-be21-48c7-9119-3f02f9f39851",
+    "pair": "BTCUSD",
+    "target_price": 87400.0,
+    "condition": "equal",
+    "status": "active",
+    "created_at": "2026-01-26T19:11:47.197496",
+    "email": "",
+    "channel": "sms",
+    "phone": "+254737778111",
+    "custom_message": "test 2",
+    "triggered_at": null,
+    "last_checked_price": 87287.0
+  },
+  "7d870b3f-9162-42c0-b67f-9276fba81e69": {
+    "id": "7d870b3f-9162-42c0-b67f-9276fba81e69",
+    "pair": "EURUSD",
+    "target_price": 1.18932,
+    "condition": "equal",
+    "status": "triggered",
+    "created_at": "2026-01-26T19:12:50.527047",
+    "email": "",
+    "channel": "sms",
+    "phone": "+254737778111",
+    "custom_message": "euro test",
+    "triggered_at": "2026-01-26T19:12:51.124040",
+    "last_checked_price": 1.18938
+  },
+  "788a5761-d71d-4842-9415-f29587378c07": {
+    "id": "788a5761-d71d-4842-9415-f29587378c07",
+    "pair": "EURUSD",
+    "target_price": 1.1881,
+    "condition": "equal",
+    "status": "triggered",
+    "created_at": "2026-01-26T20:33:39.026764",
+    "email": "",
+    "channel": "sms",
+    "phone": "+254737778111",
+    "custom_message": "ttttttt",
+    "triggered_at": "2026-01-26T20:35:33.262784",
+    "last_checked_price": 1.18809
+  }
+}

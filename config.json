@@ -1,0 +1,12 @@
+{
+  "url": "https://www.tradingview.com/chart/",
+  "waitSelector": ".symbol-RsFlttSS",
+  "tableSelector": ".listContainer-MgF6KBas",
+  "pairCellSelector": ".symbol-RsFlttSS",
+  "symbolNameSelector": ".symbolNameText-RsFlttSS",
+  "priceSelector": ".last-RsFlttSS .inner-RsFlttSS",
+  "priceIndex": 3,
+  "streamIntervalSeconds": 1,
+  "symbols": [],
+  "injectMutationObserver": true
+}

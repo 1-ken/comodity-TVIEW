@@ -1,0 +1,348 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Commodities Observer - Live Prices with Alerts</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { font-family: system-ui, Arial, sans-serif; margin: 0; padding: 2rem; background: #f5f5f5; }
+      .container { max-width: 1200px; margin: 0 auto; }
+      h1 { color: #333; border-bottom: 3px solid #007bff; padding-bottom: 10px; }
+      h2 { color: #555; margin-top: 2rem; }
+      .pill { display: inline-block; padding: 6px 12px; margin: 4px; border-radius: 20px; background: #e3f2fd; color: #0066cc; font-weight: bold; }
+      table { border-collapse: collapse; width: 100%; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+      th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+      th { background: #007bff; color: white; font-weight: bold; }
+      tr:hover { background: #f9f9f9; }
+      .alert-form { background: white; padding: 20px; border-radius: 8px; margin: 1rem 0; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+      .form-group { margin-bottom: 12px; }
+      label { display: block; font-weight: bold; margin-bottom: 4px; }
+      input, select, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+      button { background: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+      button:hover { background: #218838; }
+      button.danger { background: #dc3545; }
+      button.danger:hover { background: #c82333; }
+      .status-active { color: #28a745; font-weight: bold; }
+      .status-triggered { color: #dc3545; font-weight: bold; }
+      .alert-item { background: white; padding: 15px; margin: 10px 0; border-left: 4px solid #007bff; border-radius: 4px; }
+      .alert-item.triggered { border-left-color: #dc3545; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 20px; }
+      pre { background: #f7f7f7; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>📊 Commodities Observer - Live Prices with Alerts</h1>
+
+      <h2>Tracked Commodities</h2>
+      <div id="symbols"></div>
+
+      <h2>Commodities with Prices</h2>
+      <table id="commoditiesTable">
+        <thead>
+          <tr>
+            <th>Symbol</th>
+            <th style="text-align: right;">Price</th>
+          </tr>
+        </thead>
+        <tbody id="commoditiesBody"></tbody>
+      </table>
+
+      <h2>Create Price Alert</h2>
+      <div class="alert-form">
+        <form id="alertForm" onsubmit="createAlert(event)">
+          <div class="grid">
+            <div>
+              <div class="form-group">
+                <label>Commodity Symbol:</label>
+                <select id="alertPair" required>
+                  <option value="">Select a commodity...</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Target Price:</label>
+                <input type="text" id="alertPrice" pattern="[0-9]+\.?[0-9]*" placeholder="e.g., 2000.50" required />
+              </div>
+            </div>
+            <div>
+              <div class="form-group">
+                <label>Condition:</label>
+                <select id="alertCondition" required>
+                  <option value="equal">Price EQUALS</option>
+                  <option value="above">Price goes ABOVE</option>
+                  <option value="below">Price goes BELOW</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Delivery Method:</label>
+                <select id="alertChannel" required onchange="toggleContactFields()">
+                  <option value="email">Email</option>
+                  <option value="sms">SMS</option>
+                </select>
+              </div>
+              <div class="form-group" id="emailField">
+                <label>Email Address:</label>
+                <input type="email" id="alertEmail" placeholder="your@email.com" />
+              </div>
+              <div class="form-group" id="phoneField" style="display:none;">
+                <label>Phone Number (E.164):</label>
+                <input type="tel" id="alertPhone" placeholder="+254712345678" />
+              </div>
+              <div class="form-group">
+                <label>Custom Message (Optional):</label>
+                <textarea id="alertMessage" placeholder="Add a custom message for the alert..." style="resize: vertical; min-height: 60px;"></textarea>
+              </div>
+            </div>
+          </div>
+          <button type="submit">🔔 Create Alert</button>
+        </form>
+      </div>
+
+      <div class="grid">
+        <div>
+          <h2>Active Alerts</h2>
+          <div id="activeAlerts"></div>
+        </div>
+        <div>
+          <h2>Triggered Alerts</h2>
+          <div id="triggeredAlerts"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const symbolsNode = document.getElementById('symbols');
+      const commoditiesBody = document.getElementById('commoditiesBody');
+      const activeAlertsNode = document.getElementById('activeAlerts');
+      const triggeredAlertsNode = document.getElementById('triggeredAlerts');
+      const alertPairSelect = document.getElementById('alertPair');
+      const triggeredState = { list: [], visible: 5 };
+
+      let ws;
+
+      function connectWs() {
+        try {
+          const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+          const wsUrl = `${wsProtocol}//${window.location.hostname}:${window.location.port || 8001}/ws/observe`;
+          console.log('Connecting to WebSocket:', wsUrl);
+          ws = new WebSocket(wsUrl);
+          ws.onopen = () => {
+            console.log('Connected to commodities server');
+          };
+          ws.onerror = (e) => console.error('WebSocket error', e);
+          ws.onclose = () => {
+            console.log('Disconnected from server');
+            setTimeout(connectWs, 3000); // Reconnect after 3 seconds
+          };
+          ws.onmessage = handleMessage;
+        } catch (err) {
+          console.error('Failed to initialize WebSocket', err);
+        }
+      }
+
+      function handleMessage(evt) {
+        console.log('Message received:', evt.data);
+        try {
+          const data = JSON.parse(evt.data);
+          const symbols = data.majors || [];
+          console.log('Symbols:', symbols);
+          symbolsNode.innerHTML = symbols.map(m => `<span class="pill">${m}</span>`).join('');
+          
+          // Display commodities with prices
+          const pairs = data.pairs || [];
+          console.log('Commodity pairs:', pairs);
+          
+          // Store pairs globally for dropdown update
+          window.commodityPairs = pairs;
+          updatePairDropdown();
+          
+          commoditiesBody.innerHTML = pairs.map(p => `
+            <tr>
+              <td>${p.pair}</td>
+              <td style="text-align: right; font-weight: bold;">${p.price}</td>
+            </tr>
+          `).join('');
+          
+          console.log('Commodities table updated with', pairs.length, 'pairs');
+          updateAlerts(data);
+        } catch (err) {
+          console.error('Error handling message:', err);
+        }
+      }
+
+      function updatePairDropdown() {
+        const currentValue = alertPairSelect.value;
+        const commodities = window.commodityPairs || [];
+        
+        let options = '<option value="">Select a commodity...</option>';
+        options += commodities.map(p => `<option value="${p.pair}">${p.pair} (${p.price})</option>`).join('');
+        
+        alertPairSelect.innerHTML = options;
+        if (currentValue) alertPairSelect.value = currentValue;
+      }
+
+      function updateAlerts(data) {
+        // Only update if we have alerts data
+        if (!data.alerts) return;
+        
+        const alerts = data.alerts || {};
+        const activeAlerts = alerts.active || [];
+        activeAlertsNode.innerHTML = activeAlerts.length === 0 ? '<p style="color: #999;">No active alerts</p>' : activeAlerts.map(a => `
+          <div class="alert-item">
+            <div><strong style="font-size: 1.1em;">${a.pair}</strong></div>
+            <div style="margin: 8px 0; font-size: 0.95em;">Alert when price <strong>${a.condition}</strong> <strong style="color: #007bff;">${a.target_price}</strong></div>
+            ${a.channel === 'sms' ? `<div style="font-size: 0.85em; color: #666; margin-bottom: 10px;">📱 ${a.phone}</div>` : `<div style="font-size: 0.85em; color: #666; margin-bottom: 10px;">📧 ${a.email}</div>`}
+            ${a.custom_message ? `<div style="background-color: #fff3cd; border-left: 3px solid #ffc107; padding: 8px; margin: 8px 0; font-size: 0.9em; border-radius: 3px;"><strong>Message:</strong> ${a.custom_message}</div>` : ''}
+            <div style="margin-top: 10px;">
+              <button class="danger" onclick="deleteAlert('${a.id}')" style="width: 100%; padding: 8px;">Delete Alert</button>
+            </div>
+          </div>
+        `).join('');
+
+        // Handle triggered alerts
+        const newTriggered = alerts.triggered || [];
+        const existingIds = new Set(triggeredState.list.map(a => a.id));
+        
+        // Add new triggered alerts that we haven't seen yet
+        for (const alert of newTriggered) {
+          if (!existingIds.has(alert.id)) {
+            triggeredState.list.push(alert);
+          } else {
+            // Update existing alert with latest data
+            const index = triggeredState.list.findIndex(a => a.id === alert.id);
+            if (index !== -1) {
+              triggeredState.list[index] = alert;
+            }
+          }
+        }
+        
+        // Sort by triggered_at descending
+        triggeredState.list.sort((a, b) => {
+          const dateA = new Date(a.triggered_at || 0);
+          const dateB = new Date(b.triggered_at || 0);
+          return dateB - dateA;
+        });
+        
+        renderTriggeredAlerts();
+      }
+
+      // Start WebSocket connection
+      console.log('Initializing WebSocket connection...');
+      connectWs();
+      
+      // Add initial placeholder message
+      window.addEventListener('load', () => {
+        console.log('Page fully loaded');
+        if (!window.commodityPairs || window.commodityPairs.length === 0) {
+          commoditiesBody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: #999;">Waiting for data...</td></tr>';
+        }
+      });
+
+      function renderTriggeredAlerts() {
+        const { list, visible } = triggeredState;
+        if (!list || list.length === 0) {
+          triggeredAlertsNode.innerHTML = '<p style="color: #999;">No triggered alerts</p>';
+          return;
+        }
+
+        const slice = list.slice(0, visible);
+        const cards = slice.map(a => `
+          <div class="alert-item triggered">
+            <div><strong style="font-size: 1.1em;">${a.pair}</strong> <span class="status-triggered">✓ TRIGGERED</span></div>
+            <div style="margin: 8px 0; font-size: 0.95em;">Price reached <strong>${a.condition}</strong> <strong style="color: #007bff;">${a.target_price}</strong></div>
+            <div style="font-size: 0.9em; color: #666;">Current: <strong>${a.last_checked_price}</strong></div>
+            ${a.custom_message ? `<div style="background-color: #fff3cd; border-left: 3px solid #ffc107; padding: 8px; margin: 8px 0; font-size: 0.85em; border-radius: 3px;"><strong>Message:</strong> ${a.custom_message}</div>` : ''}
+            <div style="font-size: 0.8em; color: #999;">Triggered: ${new Date(a.triggered_at).toLocaleString()}</div>
+          </div>
+        `).join('');
+
+        const hasMore = list.length > visible;
+        const loadMoreBtn = hasMore ? `
+          <div style="margin-top: 10px; text-align: center;">
+            <button onclick="loadMoreTriggered()" style="width: 100%; background: #007bff; color: white; padding: 10px; border: none; border-radius: 4px;">Load more triggered alerts (${list.length - visible} more)</button>
+          </div>
+        ` : '';
+
+        triggeredAlertsNode.innerHTML = cards + loadMoreBtn;
+      }
+
+      function loadMoreTriggered() {
+        triggeredState.visible = Math.min(triggeredState.visible + 5, triggeredState.list.length);
+        renderTriggeredAlerts();
+      }
+
+      async function createAlert(event) {
+        event.preventDefault();
+        
+        const pair = document.getElementById('alertPair').value;
+        const targetPriceInput = document.getElementById('alertPrice').value;
+        const targetPrice = parseFloat(targetPriceInput);
+        
+        // Validate price input
+        if (isNaN(targetPrice) || targetPrice <= 0) {
+          alert('Please enter a valid price');
+          return;
+        }
+        
+        const condition = document.getElementById('alertCondition').value;
+        const channel = document.getElementById('alertChannel').value;
+        const email = document.getElementById('alertEmail').value;
+        const phone = document.getElementById('alertPhone').value;
+        const customMessage = document.getElementById('alertMessage').value || '';
+
+        try {
+          const response = await fetch('/api/alerts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pair, target_price: targetPrice, condition, channel, email, phone, custom_message: customMessage })
+          });
+          
+          if (response.ok) {
+            alert('✅ Alert created successfully!');
+            document.getElementById('alertForm').reset();
+            toggleContactFields(); // Reset visibility
+          } else {
+            alert('❌ Failed to create alert');
+          }
+        } catch (error) {
+          alert(`Error: ${error.message}`);
+        }
+      }
+
+      async function deleteAlert(alertId) {
+        if (!confirm('Delete this alert?')) return;
+        
+        try {
+          const response = await fetch(`/api/alerts/${alertId}`, {
+            method: 'DELETE'
+          });
+          
+          if (response.ok) {
+            alert('Alert deleted');
+          } else {
+            alert('Failed to delete alert');
+          }
+        } catch (error) {
+          alert(`Error: ${error.message}`);
+        }
+      }
+
+      function toggleContactFields() {
+        const channel = document.getElementById('alertChannel').value;
+        const emailField = document.getElementById('emailField');
+        const phoneField = document.getElementById('phoneField');
+        if (channel === 'sms') {
+          emailField.style.display = 'none';
+          phoneField.style.display = 'block';
+        } else {
+          emailField.style.display = 'block';
+          phoneField.style.display = 'none';
+        }
+      }
+      
+      // Initialize
+      toggleContactFields();
+    </script>
+  </body>
+</html>

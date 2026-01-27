@@ -1,0 +1,80 @@
+{
+  "Indices": [
+    {
+      "pair": "SPX",
+      "price": "6,952.59"
+    },
+    {
+      "pair": "NDQ",
+      "price": "25,738.02"
+    },
+    {
+      "pair": "DJI",
+      "price": "49,316.80"
+    },
+    {
+      "pair": "VIX",
+      "price": "16.04"
+    },
+    {
+      "pair": "DXY",
+      "price": "96.896"
+    }
+  ],
+  "Stocks": [
+    {
+      "pair": "AAPL",
+      "price": "255.22"
+    },
+    {
+      "pair": "TSLA",
+      "price": "437.96"
+    },
+    {
+      "pair": "NFLX",
+      "price": "85.95"
+    }
+  ],
+  "Futures": [
+    {
+      "pair": "USOIL",
+      "price": "60.54"
+    },
+    {
+      "pair": "GOLD",
+      "price": "5,085.770"
+    },
+    {
+      "pair": "SILVER",
+      "price": "111.7930"
+    }
+  ],
+  "Forex": [
+    {
+      "pair": "EURUSD",
+      "price": "1.18916"
+    },
+    {
+      "pair": "GBPUSD",
+      "price": "1.37012"
+    },
+    {
+      "pair": "USDJPY",
+      "price": "153.673"
+    }
+  ],
+  "Crypto": [
+    {
+      "pair": "BTCUSD",
+      "price": "87,449"
+    },
+    {
+      "pair": "BTCUSDT",
+      "price": "87,550.55"
+    },
+    {
+      "pair": "ETHUSD",
+      "price": "2,896.7"
+    }
+  ]
+}
