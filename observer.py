@@ -31,10 +31,10 @@ class SiteObserver:
         self._pw = None
         self.browser: Optional[Browser] = None
         self.page: Optional[Page] = None
-        # Track staleness to auto-recover if the DOM stops updating
-        self._last_fingerprint: str = ""
-        self._stale_iterations: int = 0
-        self._stale_threshold: int = 30  # number of unchanged snapshots before forcing a refresh
+        # Track gold price to detect stalled data feed
+        self._last_gold_price: Optional[str] = None
+        self._last_gold_update_time: Optional[float] = None
+        self._gold_stall_timeout: float = 30.0  # seconds before refresh if gold hasn't changed
 
     async def startup(self) -> None:
         """Initialize the browser and navigate to the target URL."""
@@ -42,7 +42,7 @@ class SiteObserver:
             logger.info(f"Starting browser and navigating to {self.url}")
             self._pw = await async_playwright().start()
             self.browser = await self._pw.chromium.launch(
-                headless=False,  # Show browser window for monitoring
+                headless=True,
                 args=[
                     '--disable-blink-features=AutomationControlled',
                     '--disable-dev-shm-usage',
@@ -454,15 +454,8 @@ class SiteObserver:
             title = await self.page.title()
             changes: List[str] = await self.page.evaluate("() => (window.__changes || []).splice(0)")
 
-            # Detect if the feed has stopped changing and trigger a soft recovery
-            fingerprint = json.dumps(major_pairs, sort_keys=True)
-            if changes or fingerprint != self._last_fingerprint:
-                self._stale_iterations = 0
-            else:
-                self._stale_iterations += 1
-                if self._stale_iterations >= self._stale_threshold:
-                    await self._recover_from_stall()
-            self._last_fingerprint = fingerprint
+            # Check if gold price has changed (gold is most volatile, good indicator of live data)
+            await self._check_gold_stall(major_pairs)
 
             return {
                 "title": title,
@@ -484,20 +477,59 @@ class SiteObserver:
                 "error": str(e),
             }
 
-    async def _recover_from_stall(self) -> None:
-        """Force a page refresh when repeated snapshots show no change."""
+    async def _check_gold_stall(self, pairs_data: List[Dict[str, str]]) -> None:
+        """Check if gold price has changed; refresh page if stalled for 30 seconds."""
         if not self.page:
             return
-        logger.warning(
-            "No DOM changes detected for %s snapshots; forcing page reload", self._stale_threshold
-        )
+        
+        import time
+        current_time = time.time()
+        
+        # Find gold price in current data
+        gold_price = None
+        for item in pairs_data:
+            if item.get("pair", "").upper() == "GOLD":
+                gold_price = item.get("price", "")
+                break
+        
+        if gold_price:
+            # Check if gold price has changed
+            if gold_price != self._last_gold_price:
+                # Gold price changed - update tracking
+                logger.debug(f"Gold price updated: {self._last_gold_price} -> {gold_price}")
+                self._last_gold_price = gold_price
+                self._last_gold_update_time = current_time
+            else:
+                # Gold price hasn't changed - check timeout
+                if self._last_gold_update_time is not None:
+                    time_since_update = current_time - self._last_gold_update_time
+                    if time_since_update >= self._gold_stall_timeout:
+                        logger.warning(
+                            f"Gold price unchanged for {time_since_update:.1f}s (threshold: {self._gold_stall_timeout}s); refreshing page"
+                        )
+                        await self._recover_from_gold_stall()
+                else:
+                    # First time seeing this gold price
+                    self._last_gold_update_time = current_time
+        else:
+            # Gold not found in data - just update timestamp to prevent false triggers
+            if self._last_gold_update_time is None:
+                self._last_gold_update_time = current_time
+    
+    async def _recover_from_gold_stall(self) -> None:
+        """Force a page refresh when gold price hasn't changed for the timeout period."""
+        if not self.page:
+            return
+        
+        logger.info("Refreshing page due to stalled gold data...")
         try:
             await self.page.reload(wait_until="domcontentloaded", timeout=60000)
             await self.page.wait_for_timeout(2000)
             await self._handle_cookie_consent()
-            # Reset staleness counters after recovery
-            self._stale_iterations = 0
-            self._last_fingerprint = ""
+            # Reset gold tracking after recovery
+            self._last_gold_price = None
+            self._last_gold_update_time = None
+            logger.info("Page refreshed successfully")
         except Exception as e:
             logger.error(f"Recovery reload failed: {e}")
 
