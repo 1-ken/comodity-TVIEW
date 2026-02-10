@@ -4,7 +4,7 @@
     "pair": "BTCUSDT",
     "target_price": 87320.0,
     "condition": "equal",
-    "status": "active",
+    "status": "triggered",
     "created_at": "2026-01-26T19:11:08.280932",
     "email": "",
     "channels": [
@@ -12,8 +12,8 @@
     ],
     "phone": "+254737778111",
     "custom_message": "test",
-    "triggered_at": null,
-    "last_checked_price": 88462.45
+    "triggered_at": "2026-01-27T20:45:19.880936",
+    "last_checked_price": 87353.99
   },
   "396b969b-be21-48c7-9119-3f02f9f39851": {
     "id": "396b969b-be21-48c7-9119-3f02f9f39851",
@@ -100,7 +100,7 @@
     "pair": "GOLD",
     "target_price": 5088.0,
     "condition": "equal",
-    "status": "active",
+    "status": "triggered",
     "created_at": "2026-01-27T18:59:57.227712",
     "email": "",
     "channels": [
@@ -108,15 +108,15 @@
     ],
     "phone": "+254737778111",
     "custom_message": "ljhfxv",
-    "triggered_at": null,
-    "last_checked_price": 5096.935
+    "triggered_at": "2026-01-27T19:48:27.508331",
+    "last_checked_price": 5088.0
   },
   "2d5598d4-4def-41aa-995b-7d00dd8a0fce": {
     "id": "2d5598d4-4def-41aa-995b-7d00dd8a0fce",
     "pair": "GOLD",
     "target_price": 5093.0,
     "condition": "equal",
-    "status": "active",
+    "status": "triggered",
     "created_at": "2026-01-27T19:00:27.301071",
     "email": "",
     "channels": [
@@ -124,8 +124,8 @@
     ],
     "phone": "+254737778111",
     "custom_message": "",
-    "triggered_at": null,
-    "last_checked_price": 5096.935
+    "triggered_at": "2026-01-27T20:15:30.671300",
+    "last_checked_price": 5093.0
   },
   "8505c798-1a4e-4242-9489-2b35abf576b1": {
     "id": "8505c798-1a4e-4242-9489-2b35abf576b1",
@@ -148,7 +148,7 @@
     "pair": "USOIL",
     "target_price": 62.0,
     "condition": "above",
-    "status": "active",
+    "status": "triggered",
     "created_at": "2026-01-27T19:24:43.007058",
     "email": "kennicmwimu@gmail.com",
     "channels": [
@@ -157,8 +157,8 @@
     ],
     "phone": "+254737778111",
     "custom_message": "waah",
-    "triggered_at": null,
-    "last_checked_price": 61.81
+    "triggered_at": "2026-01-27T20:03:19.435691",
+    "last_checked_price": 62.0
   },
   "8c551b80-0c4e-4460-90dc-761ba734558b": {
     "id": "8c551b80-0c4e-4460-90dc-761ba734558b",

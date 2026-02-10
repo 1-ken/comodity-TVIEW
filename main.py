@@ -16,6 +16,8 @@ from observer import SiteObserver
 from alerts import AlertManager, Alert
 from email_service import EmailService
 from sms_service import SMSService
+from price_history import PriceHistory
+from replay_manager import ReplayManager
 
 # Load environment variables from .env file
 load_dotenv()
@@ -80,10 +82,15 @@ active_websockets: set[WebSocket] = set()
 background_task: asyncio.Task | None = None
 shutdown_event = asyncio.Event()
 
+# Price history and replay
+price_history = PriceHistory()
+replay_manager = ReplayManager()
+
 
 async def background_monitoring_task():
     """Background task that continuously monitors prices and checks alerts.
     Runs independently of WebSocket connections.
+    Stores historical data for replay functionality.
     """
     logger.info("Background monitoring task started")
     
@@ -96,6 +103,18 @@ async def background_monitoring_task():
             
             # Get snapshot data
             data = await observer.snapshot(SYMBOLS)
+            
+            # Store in price history for replay functionality
+            price_history.add_snapshot(data)
+            
+            # Check if we're in replay mode - if so, get next snapshot from replay
+            if replay_manager.is_replaying():
+                replayed_snapshot = replay_manager.get_next_snapshot()
+                if replayed_snapshot:
+                    data = replayed_snapshot.get("snapshot", data)
+                else:
+                    # Replay finished
+                    logger.info("Replay finished")
             
             # Check price alerts
             triggered_alerts = alert_manager.check_alerts(data.get("pairs", []))
@@ -295,6 +314,101 @@ async def ws_observe(ws: WebSocket):
             await ws.close()
         except Exception:
             pass
+
+
+# Replay API Endpoints
+
+@app.get("/api/replay/info")
+async def replay_info():
+    """Get information about available price history for replay."""
+    date_range = price_history.get_date_range()
+    return {
+        "total_snapshots": price_history.get_snapshot_count(),
+        "date_range": date_range,
+        "status": replay_manager.get_status(),
+    }
+
+
+@app.post("/api/replay/start")
+async def start_replay(
+    start_index: int = 0,
+    speed: float = 1.0,
+):
+    """Start price replay from a specific snapshot index."""
+    snapshots = price_history.get_history_range()
+    
+    if not snapshots:
+        raise HTTPException(status_code=400, detail="No price history available")
+    
+    if not (0 <= start_index < len(snapshots)):
+        raise HTTPException(status_code=400, detail=f"Invalid start_index. Must be 0-{len(snapshots)-1}")
+    
+    if not (0.25 <= speed <= 4.0):
+        raise HTTPException(status_code=400, detail="Speed must be between 0.25 and 4.0")
+    
+    status = replay_manager.start_replay(snapshots, start_index=start_index, speed=speed)
+    logger.info(f"Started replay: {snapshots}")
+    return status
+
+
+@app.post("/api/replay/pause")
+async def pause_replay():
+    """Pause the current replay."""
+    return replay_manager.pause()
+
+
+@app.post("/api/replay/resume")
+async def resume_replay():
+    """Resume the paused replay."""
+    return replay_manager.resume()
+
+
+@app.post("/api/replay/stop")
+async def stop_replay():
+    """Stop replay completely."""
+    return replay_manager.stop()
+
+
+@app.post("/api/replay/speed")
+async def set_replay_speed(speed: float):
+    """Set replay speed (0.25x to 4x)."""
+    if not (0.25 <= speed <= 4.0):
+        raise HTTPException(status_code=400, detail="Speed must be between 0.25 and 4.0")
+    return replay_manager.set_speed(speed)
+
+
+@app.post("/api/replay/seek")
+async def seek_replay(index: int = 0):
+    """Seek to specific snapshot index."""
+    if not (0 <= index < price_history.get_snapshot_count()):
+        raise HTTPException(status_code=400, detail=f"Invalid index. Must be 0-{price_history.get_snapshot_count()-1}")
+    return replay_manager.seek_to_index(index)
+
+
+@app.post("/api/replay/seek-percent")
+async def seek_replay_percent(percent: float):
+    """Seek to percentage of replay (0-100)."""
+    if not (0 <= percent <= 100):
+        raise HTTPException(status_code=400, detail="Percentage must be between 0 and 100")
+    return replay_manager.seek_to_percentage(percent)
+
+
+@app.get("/api/replay/status")
+async def get_replay_status():
+    """Get current replay status."""
+    return replay_manager.get_status()
+
+
+@app.get("/api/replay/history")
+async def get_price_history(limit: int = 100):
+    """Get recent price history snapshots."""
+    all_history = price_history.get_history_range()
+    # Return the last 'limit' snapshots
+    return {
+        "total": len(all_history),
+        "returned": len(all_history[-limit:]),
+        "history": all_history[-limit:],
+    }
 
 
 # Alert API Endpoints
