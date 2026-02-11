@@ -1,0 +1,379 @@
+{
+  "info": {
+    "name": "Commodities Observer API",
+    "description": "Real-time commodities price monitoring with price alerts API endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Price Data",
+      "item": [
+        {
+          "name": "Get Current Snapshot",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/snapshot",
+              "host": ["{{base_url}}"],
+              "path": ["snapshot"]
+            },
+            "description": "Get a single snapshot of current commodities data including all tracked pairs and their prices."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Client Config",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/client-config",
+              "host": ["{{base_url}}"],
+              "path": ["client-config"]
+            },
+            "description": "Get WebSocket URL configuration for real-time streaming connection."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Alerts",
+      "item": [
+        {
+          "name": "Create Alert - Email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pair\": \"EURUSD\",\n  \"target_price\": 1.0850,\n  \"condition\": \"above\",\n  \"channels\": [\"email\"],\n  \"email\": \"user@example.com\",\n  \"custom_message\": \"EUR/USD has moved above 1.0850!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/alerts",
+              "host": ["{{base_url}}"],
+              "path": ["api", "alerts"]
+            },
+            "description": "Create a new price alert for email notifications. Alert triggers when price condition is met."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Alert - SMS",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pair\": \"GOLD\",\n  \"target_price\": 2050.50,\n  \"condition\": \"below\",\n  \"channels\": [\"sms\"],\n  \"phone\": \"+1234567890\",\n  \"custom_message\": \"Gold price dropped below 2050!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/alerts",
+              "host": ["{{base_url}}"],
+              "path": ["api", "alerts"]
+            },
+            "description": "Create a new price alert for SMS notifications."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Alert - Email & SMS",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pair\": \"SPX\",\n  \"target_price\": 6950.00,\n  \"condition\": \"equal\",\n  \"channels\": [\"email\", \"sms\"],\n  \"email\": \"user@example.com\",\n  \"phone\": \"+1234567890\",\n  \"custom_message\": \"SPX reached target price!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/alerts",
+              "host": ["{{base_url}}"],
+              "path": ["api", "alerts"]
+            },
+            "description": "Create a price alert with both email and SMS notifications."
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Alerts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/alerts",
+              "host": ["{{base_url}}"],
+              "path": ["api", "alerts"]
+            },
+            "description": "Retrieve all alerts (active, triggered, and historical)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Alert by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/alerts/{{alert_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "alerts", "{{alert_id}}"]
+            },
+            "description": "Get details for a specific alert by ID. Replace {{alert_id}} with actual alert UUID."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Alert",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/alerts/{{alert_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "alerts", "{{alert_id}}"]
+            },
+            "description": "Delete an alert by ID. Replace {{alert_id}} with actual alert UUID."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Replay",
+      "item": [
+        {
+          "name": "Get Replay Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/replay/info",
+              "host": ["{{base_url}}"],
+              "path": ["api", "replay", "info"]
+            },
+            "description": "Get information about available price history including date range and total snapshots."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Price History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/replay/history?limit=100",
+              "host": ["{{base_url}}"],
+              "path": ["api", "replay", "history"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "100",
+                  "description": "Number of recent snapshots to return (default: 100)"
+                }
+              ]
+            },
+            "description": "Get recent price history snapshots for replay functionality."
+          },
+          "response": []
+        },
+        {
+          "name": "Start Replay",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/replay/start?start_index=0&speed=1.0",
+              "host": ["{{base_url}}"],
+              "path": ["api", "replay", "start"],
+              "query": [
+                {
+                  "key": "start_index",
+                  "value": "0",
+                  "description": "Snapshot index to start replay from (default: 0)"
+                },
+                {
+                  "key": "speed",
+                  "value": "1.0",
+                  "description": "Replay speed multiplier (0.25 to 4.0, default: 1.0)"
+                }
+              ]
+            },
+            "description": "Start price history replay from a specific snapshot index and speed."
+          },
+          "response": []
+        },
+        {
+          "name": "Pause Replay",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/replay/pause",
+              "host": ["{{base_url}}"],
+              "path": ["api", "replay", "pause"]
+            },
+            "description": "Pause the current replay at current position."
+          },
+          "response": []
+        },
+        {
+          "name": "Resume Replay",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/replay/resume",
+              "host": ["{{base_url}}"],
+              "path": ["api", "replay", "resume"]
+            },
+            "description": "Resume the paused replay from where it was paused."
+          },
+          "response": []
+        },
+        {
+          "name": "Stop Replay",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/replay/stop",
+              "host": ["{{base_url}}"],
+              "path": ["api", "replay", "stop"]
+            },
+            "description": "Stop replay completely and reset to initial state."
+          },
+          "response": []
+        },
+        {
+          "name": "Set Replay Speed",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/replay/speed?speed=2.0",
+              "host": ["{{base_url}}"],
+              "path": ["api", "replay", "speed"],
+              "query": [
+                {
+                  "key": "speed",
+                  "value": "2.0",
+                  "description": "Replay speed multiplier (0.25 to 4.0)"
+                }
+              ]
+            },
+            "description": "Set the replay playback speed while replay is running or paused."
+          },
+          "response": []
+        },
+        {
+          "name": "Seek Replay by Index",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/replay/seek?index=50",
+              "host": ["{{base_url}}"],
+              "path": ["api", "replay", "seek"],
+              "query": [
+                {
+                  "key": "index",
+                  "value": "50",
+                  "description": "Snapshot index to seek to"
+                }
+              ]
+            },
+            "description": "Seek to a specific snapshot index in the price history."
+          },
+          "response": []
+        },
+        {
+          "name": "Seek Replay by Percentage",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/replay/seek-percent?percent=50",
+              "host": ["{{base_url}}"],
+              "path": ["api", "replay", "seek-percent"],
+              "query": [
+                {
+                  "key": "percent",
+                  "value": "50",
+                  "description": "Percentage of replay (0-100)"
+                }
+              ]
+            },
+            "description": "Seek to a specific percentage of the price history replay."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Replay Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/replay/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "replay", "status"]
+            },
+            "description": "Get current replay status including state, progress, and speed."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "WebSocket",
+      "item": [
+        {
+          "name": "WebSocket - Real-time Stream",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ws_url}}",
+              "host": ["{{ws_url}}"]
+            },
+            "description": "WebSocket endpoint for real-time commodity price streaming. Connection broadcasts price updates every second with current alerts. Note: Use a WebSocket client tool to test this endpoint as Postman's WebSocket support is limited. See documentation for Python/curl examples."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8001",
+      "type": "string"
+    },
+    {
+      "key": "ws_url",
+      "value": "ws://localhost:8001/ws/observe",
+      "type": "string"
+    },
+    {
+      "key": "alert_id",
+      "value": "",
+      "type": "string",
+      "description": "Replace with actual alert UUID from get all alerts response"
+    }
+  ]
+}

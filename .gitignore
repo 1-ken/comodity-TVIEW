@@ -39,3 +39,5 @@ Thumbs.db
 
 # HTML cache or temp outputs
 *.cache
+#json store
+price_history.json

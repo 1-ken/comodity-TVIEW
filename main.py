@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from observer import SiteObserver
@@ -75,6 +76,15 @@ app = FastAPI(
     title="Commodities Observer",
     description="Real-time commodities price monitoring with price alerts",
     version="1.0.0"
+)
+
+# Configure CORS middleware for cross-origin requests
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_headers=["*"],  # Allow all headers
 )
 
 observer: SiteObserver | None = None
