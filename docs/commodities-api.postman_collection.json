@@ -1,0 +1,146 @@
+{
+  "info": {
+    "name": "Commodities Observer API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Postman collection for Commodities Observer API"
+  },
+  "item": [
+    {
+      "name": "Price Data",
+      "item": [
+        {
+          "name": "Get Snapshot",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/snapshot"
+          }
+        },
+        {
+          "name": "Get Client Config",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/client-config"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Alerts",
+      "item": [
+        {
+          "name": "Create Alert",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pair\": \"GOLD\",\n  \"target_price\": 2000.0,\n  \"condition\": \"above\",\n  \"channels\": [\"email\"],\n  \"email\": \"you@example.com\",\n  \"phone\": \"\",\n  \"custom_message\": \"\"\n}"
+            },
+            "url": "{{base_url}}/api/alerts"
+          }
+        },
+        {
+          "name": "Get Alerts",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/alerts"
+          }
+        },
+        {
+          "name": "Get Alert By ID",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/alerts/{{alert_id}}"
+          }
+        },
+        {
+          "name": "Delete Alert",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/api/alerts/{{alert_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Replay",
+      "item": [
+        {
+          "name": "Replay Info",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/replay/info"
+          }
+        },
+        {
+          "name": "Replay History",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/replay/history?limit=100"
+          }
+        },
+        {
+          "name": "Start Replay",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/replay/start?start_index=0&speed=1.0"
+          }
+        },
+        {
+          "name": "Pause Replay",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/replay/pause"
+          }
+        },
+        {
+          "name": "Resume Replay",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/replay/resume"
+          }
+        },
+        {
+          "name": "Stop Replay",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/replay/stop"
+          }
+        },
+        {
+          "name": "Set Replay Speed",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/replay/speed?speed=1.0"
+          }
+        },
+        {
+          "name": "Seek Replay Index",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/replay/seek?index=0"
+          }
+        },
+        {
+          "name": "Seek Replay Percent",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/replay/seek-percent?percent=50"
+          }
+        },
+        {
+          "name": "Replay Status",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/replay/status"
+          }
+        }
+      ]
+    }
+  ]
+}

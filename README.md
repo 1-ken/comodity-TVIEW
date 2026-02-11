@@ -64,7 +64,7 @@ This is an independent project that monitors commodity prices from Yahoo Finance
 
 4. **Configure commodities (optional):**
    
-   Edit `config.json` to customize tracked commodities and scraping parameters.
+   Edit `metadata/config.json` to customize tracked commodities and scraping parameters.
 
 ## Running the Application
 
@@ -79,7 +79,7 @@ The application will start on `http://localhost:8001`
 ### Production Mode
 
 ```bash
-uvicorn main:app --host 0.0.0.0 --port 8001
+uvicorn app.main:app --host 0.0.0.0 --port 8001
 ```
 
 ## Usage
@@ -111,7 +111,7 @@ uvicorn main:app --host 0.0.0.0 --port 8001
 
 ## Configuration
 
-### config.json
+### metadata/config.json
 
 ```json
 {
@@ -137,14 +137,19 @@ uvicorn main:app --host 0.0.0.0 --port 8001
 
 ```
 commodities/
-├── main.py              # FastAPI application
-├── observer.py          # Web scraper using Playwright
-├── alerts.py            # Alert management system
-├── email_service.py     # Email notifications via SendGrid
-├── sms_service.py       # SMS notifications via Africa's Talking
+├── app/                 # Application package
+│   ├── main.py          # FastAPI application
+│   ├── api/             # API routes
+│   ├── core/            # Config and state
+│   ├── schemas/         # Pydantic models
+│   └── services/        # Scraper, alerts, replay, notifications
 ├── client.html          # Web interface
-├── config.json          # Configuration file
-├── alerts.json          # Persisted alerts data
+├── docs/                # Documentation files
+├── metadata/            # Configuration metadata
+│   └── config.json      # Configuration file
+├── storage/             # Persisted runtime data
+│   ├── alerts.json      # Persisted alerts data
+│   └── price_history.json # Replay history storage
 ├── .env                 # Environment variables (not in git)
 ├── requirements.txt     # Python dependencies
 ├── pyproject.toml       # Project metadata
