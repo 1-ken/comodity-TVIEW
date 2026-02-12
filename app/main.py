@@ -64,6 +64,27 @@ async def background_monitoring_task():
             # Store in price history for replay functionality
             state.price_history.add_snapshot(data)
 
+            # Aggregate into candles for all timeframes
+            try:
+                from app.services.candle_aggregator import CandleAggregator
+                aggregator = CandleAggregator()
+                
+                # Get all pairs from the latest snapshot
+                pairs = data.get("pairs", [])
+                for pair_data in pairs:
+                    pair = pair_data.get("pair")
+                    if pair:
+                        # Aggregate this pair's data
+                        aggregated = aggregator.aggregate_snapshots(
+                            state.price_history.history, pair
+                        )
+                        # Store candles for each timeframe
+                        for timeframe, candles in aggregated.items():
+                            if candles:
+                                state.candle_storage.add_candles_batch(timeframe, candles)
+            except Exception as e:
+                logger.warning("Error aggregating candles: %s", e)
+
             # Check if we're in replay mode - if so, get next snapshot from replay
             if state.replay_manager.is_replaying():
                 replayed_snapshot = state.replay_manager.get_next_snapshot()

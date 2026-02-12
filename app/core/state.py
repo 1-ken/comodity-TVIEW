@@ -9,10 +9,12 @@ from app.services.observer import SiteObserver
 from app.services.price_history import PriceHistory
 from app.services.replay_manager import ReplayManager
 from app.services.sms_service import SMSService
+from app.services.candle_storage import CandleStorage
 
 alert_manager = AlertManager()
 price_history = PriceHistory()
 replay_manager = ReplayManager()
+candle_storage = CandleStorage()
 
 observer: SiteObserver | None = None
 active_websockets: Set[WebSocket] = set()
