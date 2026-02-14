@@ -12,7 +12,14 @@
 
 ## 📄 Quick Navigation
 
-### 🚀 **Getting Started (5 minutes)**
+### � **Complete API Reference (with examples)**
+→ Read: [API_REFERENCE.md](API_REFERENCE.md)
+- All endpoints with request/response examples
+- WebSocket streaming documentation
+- Error handling & status codes
+- Complete workflow examples
+
+### �🚀 **Getting Started (5 minutes)**
 → Read: [QUICK_POSTMAN_SETUP.md](QUICK_POSTMAN_SETUP.md)
 - Start backend server
 - Import Postman collection

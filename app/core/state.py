@@ -3,6 +3,7 @@ from typing import Set
 
 from fastapi import WebSocket
 
+from app.db.database import init_db
 from app.services.alerts import AlertManager
 from app.services.email_service import EmailService
 from app.services.observer import SiteObserver
@@ -10,6 +11,12 @@ from app.services.price_history import PriceHistory
 from app.services.replay_manager import ReplayManager
 from app.services.sms_service import SMSService
 from app.services.candle_storage import CandleStorage
+
+# Initialize database
+try:
+    init_db()
+except Exception as e:
+    print(f"Warning: Database initialization failed: {e}")
 
 alert_manager = AlertManager()
 price_history = PriceHistory()

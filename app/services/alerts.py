@@ -1,18 +1,18 @@
 """
-Alert management system for price notifications.
+Alert management system for price notifications - PostgreSQL version.
 """
-import json
 import logging
-from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 import uuid
+from contextlib import contextmanager
 
-from app.core.paths import ALERTS_PATH
+from sqlalchemy.orm import Session
+
+from app.db.database import SessionLocal
+from app.models.models import Alert as AlertModel
 
 logger = logging.getLogger(__name__)
-
-ALERTS_FILE = str(ALERTS_PATH)
 
 # Asset-specific tolerances for zero-tolerance market tracking
 ASSET_TOLERANCES = {
@@ -50,91 +50,26 @@ ASSET_TOLERANCES = {
 }
 
 
-@dataclass
-class Alert:
-    """Price alert configuration."""
-
-    id: str
-    pair: str
-    target_price: float
-    condition: str  # "above", "below", or "equal"
-    status: str  # "active", "triggered", "disabled"
-    created_at: str
-    email: str = ""
-    channels: List[str] = None  # ["email"] or ["sms"] or ["email", "sms"]
-    phone: str = ""
-    custom_message: str = ""
-    triggered_at: Optional[str] = None
-    last_checked_price: Optional[float] = None
-
-    def __post_init__(self):
-        """Handle default value for channels list."""
-        if self.channels is None:
-            # Support both legacy 'channel' field and new 'channels' field for backward compatibility
-            self.channels = []
-
-    def to_dict(self) -> Dict[str, Any]:
-        data = asdict(self)
-        # Ensure channels is always a list for serialization
-        if not isinstance(data["channels"], list):
-            data["channels"] = [data["channels"]] if data["channels"] else []
-        return data
-
-    @staticmethod
-    def from_dict(data: Dict[str, Any]) -> "Alert":
-        # Handle backward compatibility: convert single 'channel' to 'channels' list
-        if "channel" in data and "channels" not in data:
-            channel = data.pop("channel")
-            data["channels"] = [channel] if channel else []
-        elif "channels" not in data:
-            data["channels"] = []
-
-        return Alert(**data)
-
-
 class AlertManager:
-    """Manages price alerts and persistence."""
+    """Manages price alerts and persistence in PostgreSQL using session-per-operation pattern."""
 
-    def __init__(self, file_path: str = ALERTS_FILE):
-        self.file_path = file_path
-        self.alerts: Dict[str, Alert] = {}
-        self._load_alerts()
+    def __init__(self):
+        """Initialize alert manager. No persistent session stored."""
+        pass
 
-    def _load_alerts(self) -> None:
-        """Load alerts from file."""
+    @contextmanager
+    def _get_session(self):
+        """Context manager for database sessions with automatic cleanup and rollback on error."""
+        db = SessionLocal()
         try:
-            with open(self.file_path, "r") as f:
-                data = json.load(f)
-
-                # Accept both legacy list format and current dict format
-                if isinstance(data, list):
-                    converted = {}
-                    for item in data:
-                        if not isinstance(item, dict):
-                            continue
-                        alert_id = item.get("id") or str(uuid.uuid4())
-                        converted[alert_id] = Alert.from_dict({**item, "id": alert_id})
-                    data = converted
-                elif not isinstance(data, dict):
-                    data = {}
-
-                self.alerts = {
-                    alert_id: Alert.from_dict(alert_data)
-                    for alert_id, alert_data in data.items()
-                }
-            logger.info("Loaded %s alerts", len(self.alerts))
-        except FileNotFoundError:
-            logger.info("No existing alerts file, starting fresh")
-            self.alerts = {}
-
-    def _save_alerts(self) -> None:
-        """Save alerts to file."""
-        with open(self.file_path, "w") as f:
-            json.dump(
-                {alert_id: alert.to_dict() for alert_id, alert in self.alerts.items()},
-                f,
-                indent=2,
-            )
+            yield db
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            logger.error("Database error, rolled back transaction: %s", e)
+            raise
+        finally:
+            db.close()
 
     def create_alert(
         self,
@@ -145,68 +80,93 @@ class AlertManager:
         channels: List[str] = None,
         phone: str = "",
         custom_message: str = "",
-    ) -> Alert:
+    ) -> Dict[str, Any]:
         """Create a new alert."""
         if channels is None:
             channels = ["email"]
 
-        alert_id = str(uuid.uuid4())
-        alert = Alert(
-            id=alert_id,
-            pair=pair,
-            target_price=target_price,
-            condition=condition,
-            email=email,
-            channels=channels,
-            phone=phone,
-            custom_message=custom_message,
-            status="active",
-            created_at=datetime.now().isoformat(),
-        )
-        self.alerts[alert_id] = alert
-        self._save_alerts()
-        logger.info("Created alert %s for %s at %s via %s", alert_id, pair, target_price, channels)
-        return alert
+        with self._get_session() as db:
+            alert = AlertModel(
+                id=uuid.uuid4(),
+                pair=pair,
+                target_price=target_price,
+                condition=condition,
+                email=email,
+                channels=channels,
+                phone=phone,
+                custom_message=custom_message,
+                status="active",
+                created_at=datetime.utcnow(),
+            )
+            db.add(alert)
+            db.flush()  # Get the ID without committing yet
+            db.refresh(alert)
+            result = self._to_dict(alert)
+            logger.info("Created alert %s for %s at %s via %s", alert.id, pair, target_price, channels)
+            return result
 
-    def get_alert(self, alert_id: str) -> Optional[Alert]:
+    def get_alert(self, alert_id: str) -> Optional[Dict[str, Any]]:
         """Get alert by ID."""
-        return self.alerts.get(alert_id)
+        with self._get_session() as db:
+            try:
+                # Ensure alert_id is a valid UUID string
+                alert_uuid = uuid.UUID(str(alert_id)) if not isinstance(alert_id, uuid.UUID) else alert_id
+                alert = db.query(AlertModel).filter(AlertModel.id == alert_uuid).first()
+                return self._to_dict(alert) if alert else None
+            except (ValueError, AttributeError) as e:
+                logger.error("Invalid alert_id format: %s - %s", alert_id, e)
+                return None
 
-    def get_all_alerts(self) -> List[Alert]:
+    def get_all_alerts(self) -> List[Dict[str, Any]]:
         """Get all alerts."""
-        return list(self.alerts.values())
+        with self._get_session() as db:
+            alerts = db.query(AlertModel).all()
+            return [self._to_dict(a) for a in alerts]
 
-    def get_active_alerts(self) -> List[Alert]:
+    def get_active_alerts(self) -> List[Dict[str, Any]]:
         """Get only active alerts."""
-        return [a for a in self.alerts.values() if a.status == "active"]
+        with self._get_session() as db:
+            alerts = db.query(AlertModel).filter(AlertModel.status == "active").all()
+            return [self._to_dict(a) for a in alerts]
 
     def delete_alert(self, alert_id: str) -> bool:
         """Delete an alert."""
-        if alert_id in self.alerts:
-            del self.alerts[alert_id]
-            self._save_alerts()
-            logger.info("Deleted alert %s", alert_id)
-            return True
-        return False
+        with self._get_session() as db:
+            try:
+                alert_uuid = uuid.UUID(str(alert_id)) if not isinstance(alert_id, uuid.UUID) else alert_id
+                alert = db.query(AlertModel).filter(AlertModel.id == alert_uuid).first()
+                if alert:
+                    db.delete(alert)
+                    logger.info("Deleted alert %s", alert_id)
+                    return True
+                return False
+            except (ValueError, AttributeError) as e:
+                logger.error("Invalid alert_id format: %s - %s", alert_id, e)
+                return False
 
     def trigger_alert(self, alert_id: str, current_price: float) -> bool:
         """Mark an alert as triggered."""
-        alert = self.get_alert(alert_id)
-        if alert:
-            alert.status = "triggered"
-            alert.triggered_at = datetime.now().isoformat()
-            alert.last_checked_price = current_price
-            self._save_alerts()
-            logger.info("Triggered alert %s at price %s", alert_id, current_price)
-            return True
-        return False
+        with self._get_session() as db:
+            try:
+                # Ensure alert_id is a valid UUID
+                alert_uuid = uuid.UUID(str(alert_id)) if not isinstance(alert_id, uuid.UUID) else alert_id
+                alert = db.query(AlertModel).filter(AlertModel.id == alert_uuid).first()
+                if alert:
+                    alert.status = "triggered"
+                    alert.triggered_at = datetime.utcnow()
+                    alert.last_checked_price = current_price
+                    logger.info("Triggered alert %s at price %s", alert_id, current_price)
+                    return True
+                return False
+            except (ValueError, AttributeError) as e:
+                logger.error("Invalid alert_id format: %s - %s", alert_id, e)
+                return False
 
     @staticmethod
     def _get_tolerance(pair: str) -> float:
         """
         Get asset-specific tolerance for price comparison.
         Uses predefined tolerances for each asset type for zero-tolerance market tracking.
-
         Default tolerance if asset not in map: 0.01
         """
         return ASSET_TOLERANCES.get(pair, 0.01)
@@ -215,43 +175,62 @@ class AlertManager:
         """
         Check if any active alerts should be triggered.
         Returns list of triggered alerts with their data.
-        Uses intelligent rounding/tolerance based on price magnitude for accurate comparisons.
         """
         triggered = []
 
         # Create price lookup - remove commas from price strings first
         prices = {item["pair"]: float(item["price"].replace(",", "")) for item in pairs_data}
 
-        for alert in self.get_active_alerts():
-            if alert.pair not in prices:
+        active_alerts = self.get_active_alerts()
+
+        for alert_dict in active_alerts:
+            if alert_dict["pair"] not in prices:
                 continue
 
-            current_price = prices[alert.pair]
-            alert.last_checked_price = current_price
+            current_price = prices[alert_dict["pair"]]
 
             should_trigger = False
-            if alert.condition == "above" and current_price >= alert.target_price:
+            if alert_dict["condition"] == "above" and current_price >= alert_dict["target_price"]:
                 should_trigger = True
-            elif alert.condition == "below" and current_price <= alert.target_price:
+            elif alert_dict["condition"] == "below" and current_price <= alert_dict["target_price"]:
                 should_trigger = True
-            elif alert.condition == "equal":
-                # Use asset-specific tolerance for zero-tolerance market tracking
-                tolerance = self._get_tolerance(alert.pair)
-                if abs(current_price - alert.target_price) <= tolerance:
+            elif alert_dict["condition"] == "equal":
+                tolerance = self._get_tolerance(alert_dict["pair"])
+                if abs(current_price - alert_dict["target_price"]) <= tolerance:
                     should_trigger = True
                     logger.info(
                         "Equal alert triggered: %s price=%s target=%s tolerance=±%s",
-                        alert.pair,
+                        alert_dict["pair"],
                         f"{current_price:.6f}",
-                        f"{alert.target_price:.6f}",
+                        f"{alert_dict['target_price']:.6f}",
                         f"{tolerance:.6f}",
                     )
 
             if should_trigger:
-                self.trigger_alert(alert.id, current_price)
+                self.trigger_alert(alert_dict["id"], current_price)
                 triggered.append({
-                    "alert": alert.to_dict(),
+                    "alert": alert_dict,
                     "current_price": current_price,
                 })
 
         return triggered
+
+    @staticmethod
+    def _to_dict(alert: AlertModel) -> Dict[str, Any]:
+        """Convert alert ORM model to dictionary."""
+        if not alert:
+            return None
+        return {
+            "id": str(alert.id),
+            "pair": alert.pair,
+            "target_price": alert.target_price,
+            "condition": alert.condition,
+            "status": alert.status,
+            "email": alert.email,
+            "phone": alert.phone,
+            "channels": alert.channels or [],
+            "custom_message": alert.custom_message,
+            "created_at": alert.created_at.isoformat() if alert.created_at else None,
+            "triggered_at": alert.triggered_at.isoformat() if alert.triggered_at else None,
+            "last_checked_price": alert.last_checked_price,
+        }

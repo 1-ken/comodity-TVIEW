@@ -12,7 +12,7 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-@router.get("/candles/available-timeframes")
+@router.get("/available-timeframes")
 async def get_available_timeframes():
     """Get list of available timeframes."""
     return {
@@ -30,7 +30,7 @@ async def get_available_timeframes():
     }
 
 
-@router.get("/candles/{timeframe}")
+@router.get("/{timeframe}")
 async def get_candles(
     timeframe: str = Path(..., description="Timeframe: 1m, 5m, 15m, 30m, 1h, 4h, daily, 3d"),
     limit: int = Query(100, description="Number of candles to retrieve"),
@@ -51,7 +51,7 @@ async def get_candles(
     }
 
 
-@router.get("/candles/{timeframe}/latest")
+@router.get("/{timeframe}/latest")
 async def get_latest_candle(
     timeframe: str = Path(..., description="Timeframe: 1m, 5m, 15m, 30m, 1h, 4h, daily, 3d"),
     pair: Optional[str] = Query(None, description="Optional: specific trading pair"),
@@ -76,7 +76,7 @@ async def get_latest_candle(
     }
 
 
-@router.get("/candles/{timeframe}/range")
+@router.get("/{timeframe}/range")
 async def get_candles_by_date(
     timeframe: str = Path(..., description="Timeframe: 1m, 5m, 15m, 30m, 1h, 4h, daily, 3d"),
     start_date: str = Query(..., description="Start date (ISO format: 2026-01-27T19:35:26)"),
@@ -99,7 +99,7 @@ async def get_candles_by_date(
     }
 
 
-@router.get("/candles/stats")
+@router.get("/stats")
 async def get_candle_stats():
     """Get candle statistics across all timeframes."""
     stats = state.candle_storage.get_stats()
@@ -109,7 +109,7 @@ async def get_candle_stats():
     }
 
 
-@router.post("/candles/{timeframe}/regenerate")
+@router.post("/{timeframe}/regenerate")
 async def regenerate_candles(
     timeframe: str = Path(..., description="Timeframe: 1m, 5m, 15m, 30m, 1h, 4h, daily, 3d"),
     pair: Optional[str] = Query(None, description="Optional: specific trading pair to regenerate"),

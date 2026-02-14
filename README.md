@@ -98,7 +98,15 @@ uvicorn app.main:app --host 0.0.0.0 --port 8001
 
 4. **Manage alerts**: View active and triggered alerts in the dashboard
 
-## API Endpoints
+## API Documentation
+
+For comprehensive API documentation with request/response examples, error handling, and complete endpoint reference, see:
+
+**→ [API_REFERENCE.md](docs/API_REFERENCE.md)**
+
+### Quick API Overview
+
+The application provides a complete REST API + WebSocket infrastructure:
 
 - `GET /` - Web interface
 - `GET /client-config` - Client configuration
@@ -108,6 +116,14 @@ uvicorn app.main:app --host 0.0.0.0 --port 8001
 - `GET /api/alerts` - Get all alerts
 - `GET /api/alerts/{alert_id}` - Get specific alert
 - `DELETE /api/alerts/{alert_id}` - Delete an alert
+- `GET /api/candles/{timeframe}` - Get OHLC candles
+- `GET /api/candles/{timeframe}/latest` - Latest candle
+- `GET /api/candles/{timeframe}/range` - Candles by date range
+- `GET /api/candles/stats` - Candle statistics
+- `POST /api/replay/start` - Start price replay
+- `POST /api/replay/pause` - Pause replay
+- `POST /api/replay/resume` - Resume replay
+- `GET /api/replay/info` - Replay information
 
 ## Configuration
 

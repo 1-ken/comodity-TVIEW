@@ -36,7 +36,7 @@ async def create_alert(request: CreateAlertRequest):
         phone=request.phone,
         custom_message=request.custom_message,
     )
-    return {"success": True, "alert": alert.to_dict()}
+    return {"success": True, "alert": alert}
 
 
 @router.get("")
@@ -45,9 +45,9 @@ async def get_alerts():
     all_alerts = state.alert_manager.get_all_alerts()
     return {
         "total": len(all_alerts),
-        "active": [a.to_dict() for a in all_alerts if a.status == "active"],
-        "triggered": [a.to_dict() for a in all_alerts if a.status == "triggered"],
-        "all": [a.to_dict() for a in all_alerts],
+        "active": [a for a in all_alerts if a["status"] == "active"],
+        "triggered": [a for a in all_alerts if a["status"] == "triggered"],
+        "all": all_alerts,
     }
 
 
@@ -57,7 +57,7 @@ async def get_alert(alert_id: str):
     alert = state.alert_manager.get_alert(alert_id)
     if not alert:
         raise HTTPException(status_code=404, detail="Alert not found")
-    return alert.to_dict()
+    return alert
 
 
 @router.delete("/{alert_id}")

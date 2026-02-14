@@ -1,105 +1,152 @@
 """
-Price history storage and management for replay functionality.
-Stores price snapshots with timestamps in JSON format.
+Price history storage and management for replay functionality - PostgreSQL version.
+Stores price snapshots with timestamps in database.
 """
-import json
 import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from pathlib import Path
+from contextlib import contextmanager
 
-from app.core.paths import PRICE_HISTORY_PATH
+from sqlalchemy import and_
+from sqlalchemy.orm import Session
+
+from app.db.database import SessionLocal
+from app.models.models import PriceHistory as PriceHistoryModel
 
 logger = logging.getLogger(__name__)
 
-PRICE_HISTORY_FILE = str(PRICE_HISTORY_PATH)
-
 
 class PriceHistory:
-    """Manages historical price data for replay."""
+    """Manages historical price data for replay in PostgreSQL using session-per-operation pattern."""
 
-    def __init__(self, file_path: str = PRICE_HISTORY_FILE):
-        self.file_path = file_path
-        self.history: List[Dict[str, Any]] = []
-        self._load_history()
+    def __init__(self):
+        """Initialize price history manager. No persistent session stored."""
+        pass
 
-    def _load_history(self) -> None:
-        """Load price history from file."""
+    @contextmanager
+    def _get_session(self):
+        """Context manager for database sessions with automatic cleanup and rollback on error."""
+        db = SessionLocal()
         try:
-            if Path(self.file_path).exists():
-                with open(self.file_path, "r") as f:
-                    self.history = json.load(f)
-                logger.info("Loaded %s historical snapshots", len(self.history))
-            else:
-                logger.info("No existing price history file, starting fresh")
-                self.history = []
+            yield db
+            db.commit()
         except Exception as e:
-            logger.error("Error loading price history: %s", e)
-            self.history = []
+            db.rollback()
+            logger.error("Database error, rolled back transaction: %s", e)
+            raise
+        finally:
+            db.close()
 
-    def _save_history(self) -> None:
-        """Save price history to file."""
-        try:
-            with open(self.file_path, "w") as f:
-                json.dump(self.history, f, indent=2)
-        except Exception as e:
-            logger.error("Error saving price history: %s", e)
+    @property
+    def history(self) -> List[Dict[str, Any]]:
+        """Get all historical snapshots for compatibility."""
+        with self._get_session() as db:
+            records = db.query(PriceHistoryModel).order_by(PriceHistoryModel.timestamp).all()
+            return [self._to_dict(r) for r in records]
 
     def add_snapshot(self, snapshot: Dict[str, Any]) -> None:
         """Add a price snapshot with timestamp."""
-        # Remove 'ts' field if it exists and add it at our chosen location
-        snapshot_copy = {k: v for k, v in snapshot.items() if k != "ts"}
-        timestamp = snapshot.get("ts") or datetime.now().isoformat()
+        with self._get_session() as db:
+            timestamp = snapshot.get("ts")
+            if not timestamp:
+                timestamp = datetime.utcnow().isoformat()
+            elif isinstance(timestamp, str):
+                try:
+                    timestamp = datetime.fromisoformat(timestamp)
+                except (ValueError, TypeError):
+                    timestamp = datetime.utcnow()
+            else:
+                timestamp = datetime.utcnow()
 
-        historical_entry = {
-            "timestamp": timestamp,
-            "snapshot": snapshot_copy,
-        }
-        self.history.append(historical_entry)
-        self._save_history()
+            # Remove 'ts' field from snapshot data
+            snapshot_copy = {k: v for k, v in snapshot.items() if k != "ts"}
+
+            historical_entry = PriceHistoryModel(
+                timestamp=timestamp,
+                snapshot=snapshot_copy,
+            )
+            db.add(historical_entry)
+            logger.debug("Added price history snapshot at %s", timestamp)
 
     def get_history_range(
         self, start_time: Optional[str] = None, end_time: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """Get historical snapshots within a time range."""
-        if not start_time and not end_time:
-            return self.history
+        with self._get_session() as db:
+            query = db.query(PriceHistoryModel)
 
-        filtered = []
-        for entry in self.history:
-            ts = entry.get("timestamp", "")
-            if start_time and ts < start_time:
-                continue
-            if end_time and ts > end_time:
-                continue
-            filtered.append(entry)
-        return filtered
+            if start_time:
+                try:
+                    start_dt = datetime.fromisoformat(start_time)
+                    query = query.filter(PriceHistoryModel.timestamp >= start_dt)
+                except ValueError:
+                    logger.warning("Invalid start_time format: %s", start_time)
+
+            if end_time:
+                try:
+                    end_dt = datetime.fromisoformat(end_time)
+                    query = query.filter(PriceHistoryModel.timestamp <= end_dt)
+                except ValueError:
+                    logger.warning("Invalid end_time format: %s", end_time)
+
+            records = query.order_by(PriceHistoryModel.timestamp).all()
+            return [self._to_dict(r) for r in records]
 
     def get_snapshot_at_index(self, index: int) -> Optional[Dict[str, Any]]:
         """Get snapshot at specific index."""
-        if 0 <= index < len(self.history):
-            return self.history[index]
-        return None
+        with self._get_session() as db:
+            records = db.query(PriceHistoryModel).order_by(PriceHistoryModel.timestamp).all()
+            if 0 <= index < len(records):
+                return self._to_dict(records[index])
+            return None
 
     def get_latest_snapshot(self) -> Optional[Dict[str, Any]]:
         """Get the most recent snapshot."""
-        return self.history[-1] if self.history else None
+        with self._get_session() as db:
+            record = (
+                db.query(PriceHistoryModel)
+                .order_by(PriceHistoryModel.timestamp.desc())
+                .first()
+            )
+            return self._to_dict(record) if record else None
 
     def get_snapshot_count(self) -> int:
         """Get total number of snapshots."""
-        return len(self.history)
+        with self._get_session() as db:
+            return db.query(PriceHistoryModel).count()
 
     def clear_history(self) -> None:
         """Clear all history (use with caution)."""
-        logger.warning("Clearing all price history")
-        self.history = []
-        self._save_history()
+        with self._get_session() as db:
+            logger.warning("Clearing all price history")
+            db.query(PriceHistoryModel).delete()
 
     def get_date_range(self) -> Optional[Dict[str, str]]:
         """Get earliest and latest timestamp in history."""
-        if not self.history:
+        with self._get_session() as db:
+            records = (
+                db.query(PriceHistoryModel)
+                .order_by(PriceHistoryModel.timestamp)
+                .all()
+            )
+
+            if not records:
+                return None
+
+            earliest = records[0].timestamp
+            latest = records[-1].timestamp
+
+            return {
+                "earliest": earliest.isoformat() if earliest else None,
+                "latest": latest.isoformat() if latest else None,
+            }
+
+    @staticmethod
+    def _to_dict(record: PriceHistoryModel) -> Dict[str, Any]:
+        """Convert ORM model to dictionary."""
+        if not record:
             return None
         return {
-            "start": self.history[0].get("timestamp"),
-            "end": self.history[-1].get("timestamp"),
+            "timestamp": record.timestamp.isoformat() if record.timestamp else None,
+            "snapshot": record.snapshot,
         }

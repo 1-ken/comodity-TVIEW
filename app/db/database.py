@@ -5,27 +5,36 @@ import logging
 import os
 from typing import Generator
 
-from sqlalchemy import create_engine, event
+from dotenv import load_dotenv
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
+
+# Load environment variables from .env file
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
 # Database URL from environment variables
 # Format: postgresql://username:password@localhost:5432/dbname
+# For peer authentication: postgresql://postgres@localhost/commodities (no password)
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql://postgres:postgres@localhost:5432/commodities"
+    "postgresql://postgres@localhost/commodities"
 )
 
 # Create engine with connection pooling
-engine = create_engine(
-    DATABASE_URL,
-    echo=os.getenv("SQL_ECHO", "False").lower() == "true",
-    pool_size=10,
-    max_overflow=20,
-    pool_pre_ping=True,  # Test connections before using
-)
+try:
+    engine = create_engine(
+        DATABASE_URL,
+        echo=os.getenv("SQL_ECHO", "False").lower() == "true",
+        pool_size=10,
+        max_overflow=20,
+        pool_pre_ping=True,  # Test connections before using
+    )
+except Exception as e:
+    logger.error("Failed to create database engine: %s", e)
+    raise
 
 # Session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -61,7 +70,7 @@ def test_connection() -> bool:
     """Test database connection."""
     try:
         with engine.connect() as connection:
-            connection.execute("SELECT 1")
+            connection.execute(text("SELECT 1"))
         logger.info("✓ Database connection successful")
         return True
     except Exception as e:

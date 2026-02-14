@@ -20,7 +20,7 @@ CANDLES_1H_PATH = CANDLES_DIR / "1h.json"
 CANDLES_4H_PATH = CANDLES_DIR / "4h.json"
 CANDLES_DAILY_PATH = CANDLES_DIR / "daily.json"
 CANDLES_3D_PATH = CANDLES_DIR / "3d.json"
-CLIENT_HTML_PATH = BASE_DIR / "client.html"
+CLIENT_HTML_PATH = BASE_DIR / "app" / "static" / "client.html"
 EXTRACT_PAIRS_HTML_PATH = METADATA_DIR / "toscrap.html"
 EXTRACTED_PAIRS_PATH = STORAGE_DIR / "extracted_pairs.json"
 

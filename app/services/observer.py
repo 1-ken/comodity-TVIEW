@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from playwright.async_api import async_playwright, Browser, Page
@@ -487,7 +487,11 @@ class SiteObserver:
             }
 
     async def _check_gold_stall(self, pairs_data: List[Dict[str, str]]) -> None:
-        """Check if gold price has changed; refresh page if stalled for 30 seconds."""
+        """Check if monitored pair (gold/bitcoin) price has stalled; refresh page if stalled for 30 seconds.
+        
+        On weekends (Saturday/Sunday), monitor BITCOIN price volatility instead of GOLD,
+        since forex markets are closed and gold is a better indicator during those times.
+        """
         if not self.page:
             return
 
@@ -495,36 +499,47 @@ class SiteObserver:
 
         current_time = time.time()
 
-        # Find gold price in current data
-        gold_price = None
+        # Determine which pair to monitor based on day of week
+        # Monday=0, ..., Friday=4, Saturday=5, Sunday=6
+        is_weekend = datetime.now().weekday() >= 5
+        monitoring_pair = "BITCOIN" if is_weekend else "GOLD"
+
+        # Find monitoring pair price in current data
+        pair_price = None
         for item in pairs_data:
-            if item.get("pair", "").upper() == "GOLD":
-                gold_price = item.get("price", "")
+            if item.get("pair", "").upper() == monitoring_pair:
+                pair_price = item.get("price", "")
                 break
 
-        if gold_price:
-            # Check if gold price has changed
-            if gold_price != self._last_gold_price:
-                # Gold price changed - update tracking
-                logger.debug("Gold price updated: %s -> %s", self._last_gold_price, gold_price)
-                self._last_gold_price = gold_price
+        if pair_price:
+            # Check if price has changed
+            if pair_price != self._last_gold_price:
+                # Price changed - update tracking
+                logger.debug(
+                    "%s price updated: %s -> %s",
+                    monitoring_pair,
+                    self._last_gold_price,
+                    pair_price,
+                )
+                self._last_gold_price = pair_price
                 self._last_gold_update_time = current_time
             else:
-                # Gold price hasn't changed - check timeout
+                # Price hasn't changed - check timeout
                 if self._last_gold_update_time is not None:
                     time_since_update = current_time - self._last_gold_update_time
                     if time_since_update >= self._gold_stall_timeout:
                         logger.warning(
-                            "Gold price unchanged for %ss (threshold: %ss); refreshing page",
+                            "%s price unchanged for %ss (threshold: %ss); refreshing page",
+                            monitoring_pair,
                             f"{time_since_update:.1f}",
                             f"{self._gold_stall_timeout}",
                         )
                         await self._recover_from_gold_stall()
                 else:
-                    # First time seeing this gold price
+                    # First time seeing this price
                     self._last_gold_update_time = current_time
         else:
-            # Gold not found in data - just update timestamp to prevent false triggers
+            # Monitoring pair not found in data - just update timestamp to prevent false triggers
             if self._last_gold_update_time is None:
                 self._last_gold_update_time = current_time
 

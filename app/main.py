@@ -134,9 +134,10 @@ async def background_monitoring_task():
                             logger.error("Failed to send email alert: %s", e)
 
             # Include alerts in data for WebSocket clients
+            all_alerts = state.alert_manager.get_all_alerts()
             data["alerts"] = {
-                "active": [a.to_dict() for a in state.alert_manager.get_active_alerts()],
-                "triggered": [a.to_dict() for a in state.alert_manager.get_all_alerts() if a.status == "triggered"],
+                "active": [a for a in all_alerts if a["status"] == "active"],
+                "triggered": [a for a in all_alerts if a["status"] == "triggered"],
             }
 
             # Broadcast to all connected WebSocket clients

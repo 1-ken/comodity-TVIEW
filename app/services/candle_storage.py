@@ -1,112 +1,203 @@
 """
-Candle storage and management for multiple timeframes.
-Persists OHLC candles to disk and provides retrieval functions.
+Candle storage and management for multiple timeframes - PostgreSQL version.
+Persists OHLC candles to database.
 """
-import json
 import logging
+from datetime import datetime
 from typing import Any, Dict, List, Optional
-from pathlib import Path
+from contextlib import contextmanager
 
-from app.core.paths import CANDLES_PATHS
+from sqlalchemy import and_
+from sqlalchemy.orm import Session
+
+from app.db.database import SessionLocal
+from app.models.models import Candle as CandleModel
 
 logger = logging.getLogger(__name__)
 
+TIMEFRAMES = ["1m", "5m", "15m", "30m", "1h", "4h", "daily", "3d"]
+
 
 class CandleStorage:
-    """Manages candle persistence and retrieval for all timeframes."""
+    """Manages candle persistence and retrieval in PostgreSQL using session-per-operation pattern."""
 
     def __init__(self):
-        self.candles: Dict[str, List[Dict[str, Any]]] = {tf: [] for tf in CANDLES_PATHS}
-        self._load_all_candles()
+        """Initialize candle storage manager. No persistent session or in-memory cache."""
+        pass
 
-    def _load_all_candles(self) -> None:
-        """Load candles for all timeframes from disk."""
-        for timeframe, path in CANDLES_PATHS.items():
-            try:
-                if Path(path).exists():
-                    with open(path, "r") as f:
-                        self.candles[timeframe] = json.load(f)
-                    logger.info(
-                        "Loaded %s candles for timeframe %s",
-                        len(self.candles[timeframe]),
-                        timeframe,
-                    )
-                else:
-                    self.candles[timeframe] = []
-            except Exception as e:
-                logger.error("Error loading candles for %s: %s", timeframe, e)
-                self.candles[timeframe] = []
-
-    def _save_candles(self, timeframe: str) -> None:
-        """Save candles for a specific timeframe to disk."""
+    @contextmanager
+    def _get_session(self):
+        """Context manager for database sessions with automatic cleanup and rollback on error."""
+        db = SessionLocal()
         try:
-            path = CANDLES_PATHS.get(timeframe)
-            if path:
-                with open(path, "w") as f:
-                    json.dump(self.candles[timeframe], f, indent=2)
+            yield db
+            db.commit()
         except Exception as e:
-            logger.error("Error saving candles for %s: %s", timeframe, e)
+            db.rollback()
+            logger.error("Database error, rolled back transaction: %s", e)
+            raise
+        finally:
+            db.close()
 
     def add_candle(self, timeframe: str, candle: Dict[str, Any]) -> None:
         """Add a candle to a timeframe."""
-        if timeframe in self.candles:
-            self.candles[timeframe].append(candle)
-            self._save_candles(timeframe)
+        if timeframe not in TIMEFRAMES:
+            logger.warning("Unknown timeframe: %s", timeframe)
+            return
+
+        with self._get_session() as db:
+            timestamp = candle.get("timestamp")
+            if isinstance(timestamp, str):
+                timestamp = datetime.fromisoformat(timestamp)
+            elif not isinstance(timestamp, datetime):
+                timestamp = datetime.utcnow()
+
+            db_candle = CandleModel(
+                pair=candle.get("pair", ""),
+                timeframe=timeframe,
+                timestamp=timestamp,
+                open=candle.get("open", 0),
+                high=candle.get("high", 0),
+                low=candle.get("low", 0),
+                close=candle.get("close", 0),
+                volume=candle.get("volume", 0),
+            )
+            db.add(db_candle)
 
     def add_candles_batch(self, timeframe: str, candles: List[Dict[str, Any]]) -> None:
         """Add multiple candles to a timeframe."""
-        if timeframe in self.candles:
-            self.candles[timeframe].extend(candles)
-            self._save_candles(timeframe)
+        if timeframe not in TIMEFRAMES:
+            logger.warning("Unknown timeframe: %s", timeframe)
+            return
+
+        with self._get_session() as db:
+            for candle in candles:
+                timestamp = candle.get("timestamp")
+                if isinstance(timestamp, str):
+                    timestamp = datetime.fromisoformat(timestamp)
+                elif not isinstance(timestamp, datetime):
+                    timestamp = datetime.utcnow()
+
+                db_candle = CandleModel(
+                    pair=candle.get("pair", ""),
+                    timeframe=timeframe,
+                    timestamp=timestamp,
+                    open=candle.get("open", 0),
+                    high=candle.get("high", 0),
+                    low=candle.get("low", 0),
+                    close=candle.get("close", 0),
+                    volume=candle.get("volume", 0),
+                )
+                db.add(db_candle)
+            logger.debug("Added batch of %d candles for %s", len(candles), timeframe)
 
     def get_candles(self, timeframe: str, limit: int = 100) -> List[Dict[str, Any]]:
         """Get latest N candles for a timeframe."""
-        if timeframe in self.candles:
-            return self.candles[timeframe][-limit:]
-        return []
+        if timeframe not in TIMEFRAMES:
+            return []
+
+        with self._get_session() as db:
+            records = (
+                db.query(CandleModel)
+                .filter(CandleModel.timeframe == timeframe)
+                .order_by(CandleModel.timestamp.desc())
+                .limit(limit)
+                .all()
+            )
+            return [self._to_dict(r) for r in reversed(records)]
 
     def get_all_candles(self, timeframe: str) -> List[Dict[str, Any]]:
         """Get all candles for a timeframe."""
-        if timeframe in self.candles:
-            return self.candles[timeframe]
-        return []
+        if timeframe not in TIMEFRAMES:
+            return []
+
+        with self._get_session() as db:
+            records = (
+                db.query(CandleModel)
+                .filter(CandleModel.timeframe == timeframe)
+                .order_by(CandleModel.timestamp)
+                .all()
+            )
+            return [self._to_dict(r) for r in records]
 
     def get_candles_by_date(
         self, timeframe: str, start_date: str, end_date: str
     ) -> List[Dict[str, Any]]:
         """Get candles within a date range for a timeframe."""
-        if timeframe not in self.candles:
+        if timeframe not in TIMEFRAMES:
             return []
 
-        result = []
         try:
-            from datetime import datetime
+            start_dt = datetime.fromisoformat(start_date)
+            end_dt = datetime.fromisoformat(end_date)
 
-            start = datetime.fromisoformat(start_date)
-            end = datetime.fromisoformat(end_date)
-
-            for candle in self.candles[timeframe]:
-                candle_time = datetime.fromisoformat(candle["timestamp"])
-                if start <= candle_time <= end:
-                    result.append(candle)
+            with self._get_session() as db:
+                records = (
+                    db.query(CandleModel)
+                    .filter(
+                        and_(
+                            CandleModel.timeframe == timeframe,
+                            CandleModel.timestamp >= start_dt,
+                            CandleModel.timestamp <= end_dt,
+                        )
+                    )
+                    .order_by(CandleModel.timestamp)
+                    .all()
+                )
+                return [self._to_dict(r) for r in records]
         except ValueError as e:
             logger.error("Invalid date format: %s", e)
-
-        return result
+            return []
 
     def get_latest_candle(self, timeframe: str) -> Optional[Dict[str, Any]]:
         """Get the most recent candle for a timeframe."""
-        if timeframe in self.candles and self.candles[timeframe]:
-            return self.candles[timeframe][-1]
-        return None
+        if timeframe not in TIMEFRAMES:
+            return None
 
-    def get_stats(self) -> Dict[str, int]:
-        """Get candle counts for all timeframes."""
-        return {tf: len(candles) for tf, candles in self.candles.items()}
+        with self._get_session() as db:
+            record = (
+                db.query(CandleModel)
+                .filter(CandleModel.timeframe == timeframe)
+                .order_by(CandleModel.timestamp.desc())
+                .first()
+            )
+            return self._to_dict(record) if record else None
 
-    def clear_timeframe(self, timeframe: str) -> None:
-        """Clear all candles for a timeframe."""
-        if timeframe in self.candles:
-            self.candles[timeframe] = []
-            self._save_candles(timeframe)
-            logger.info("Cleared candles for %s", timeframe)
+    def get_candles_for_pair(
+        self, pair: str, timeframe: str, limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """Get candles for a specific pair and timeframe."""
+        if timeframe not in TIMEFRAMES:
+            return []
+
+        with self._get_session() as db:
+            records = (
+                db.query(CandleModel)
+                .filter(
+                    and_(
+                        CandleModel.pair == pair,
+                        CandleModel.timeframe == timeframe,
+                    )
+                )
+                .order_by(CandleModel.timestamp.desc())
+                .limit(limit)
+                .all()
+            )
+            return [self._to_dict(r) for r in reversed(records)]
+
+    @staticmethod
+    def _to_dict(record: CandleModel) -> Dict[str, Any]:
+        """Convert ORM model to dictionary."""
+        if not record:
+            return None
+        return {
+            "id": record.id,
+            "pair": record.pair,
+            "timeframe": record.timeframe,
+            "timestamp": record.timestamp.isoformat() if record.timestamp else None,
+            "open": record.open,
+            "high": record.high,
+            "low": record.low,
+            "close": record.close,
+            "volume": record.volume,
+        }

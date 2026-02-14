@@ -1,0 +1,548 @@
+{
+  "info": {
+    "name": "Commodities Observer API - PostgreSQL v2",
+    "description": "Complete API collection for Commodities Observer with PostgreSQL backend. Includes price monitoring, alerts, replay, and candle data endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "commodities-v2"
+  },
+  "item": [
+    {
+      "name": "Public Endpoints",
+      "item": [
+        {
+          "name": "Get Snapshot",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/snapshot",
+              "host": ["{{base_url}}"],
+              "path": ["snapshot"]
+            },
+            "description": "Get current price snapshot for all monitored pairs"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Client Config",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/client-config",
+              "host": ["{{base_url}}"],
+              "path": ["client-config"]
+            },
+            "description": "Get WebSocket URL and client configuration"
+          },
+          "response": []
+        },
+        {
+          "name": "Root - Client HTML",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": ["{{base_url}}"],
+              "path": [""]
+            },
+            "description": "Serve the client HTML interface"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Alerts",
+      "item": [
+        {
+          "name": "Create Alert - Email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pair\": \"{{test_pair}}\",\n  \"target_price\": {{test_target_price}},\n  \"condition\": \"above\",\n  \"channels\": [\"email\"],\n  \"email\": \"{{email}}\",\n  \"custom_message\": \"GOLD price alert triggered!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/alerts",
+              "host": ["{{base_url}}"],
+              "path": ["api", "alerts"]
+            },
+            "description": "Create a new price alert with email notification"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Alert - SMS",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pair\": \"BTCUSD\",\n  \"target_price\": 70000,\n  \"condition\": \"above\",\n  \"channels\": [\"sms\"],\n  \"phone\": \"{{phone}}\",\n  \"custom_message\": \"Bitcoin hit 70K!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/alerts",
+              "host": ["{{base_url}}"],
+              "path": ["api", "alerts"]
+            },
+            "description": "Create a new price alert with SMS notification"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Alert - Email & SMS",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pair\": \"EURUSD\",\n  \"target_price\": 1.20,\n  \"condition\": \"equal\",\n  \"channels\": [\"email\", \"sms\"],\n  \"email\": \"{{email}}\",\n  \"phone\": \"{{phone}}\",\n  \"custom_message\": \"EUR/USD reached target!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/alerts",
+              "host": ["{{base_url}}"],
+              "path": ["api", "alerts"]
+            },
+            "description": "Create alert with both email and SMS notifications"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Alerts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/alerts",
+              "host": ["{{base_url}}"],
+              "path": ["api", "alerts"]
+            },
+            "description": "Get all alerts (active, triggered, and all)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Alert by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/alerts/{{alert_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "alerts", "{{alert_id}}"]
+            },
+            "description": "Get a specific alert by its UUID"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Alert",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/alerts/{{alert_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "alerts", "{{alert_id}}"]
+            },
+            "description": "Delete an alert by its UUID"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Replay",
+      "item": [
+        {
+          "name": "Get Replay Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/replay/info",
+              "host": ["{{base_url}}"],
+              "path": ["api", "replay", "info"]
+            },
+            "description": "Get total snapshots, date range, and replay status"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Replay Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/replay/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "replay", "status"]
+            },
+            "description": "Get current replay status (active, paused, stopped)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Price History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/replay/history?limit=50",
+              "host": ["{{base_url}}"],
+              "path": ["api", "replay", "history"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            },
+            "description": "Get recent price history snapshots (default 100)"
+          },
+          "response": []
+        },
+        {
+          "name": "Start Replay",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/replay/start?start_index=0&speed=1.0",
+              "host": ["{{base_url}}"],
+              "path": ["api", "replay", "start"],
+              "query": [
+                {
+                  "key": "start_index",
+                  "value": "0",
+                  "description": "Snapshot index to start from"
+                },
+                {
+                  "key": "speed",
+                  "value": "1.0",
+                  "description": "Playback speed (0.25-4.0)"
+                }
+              ]
+            },
+            "description": "Start replaying price history from specific index"
+          },
+          "response": []
+        },
+        {
+          "name": "Pause Replay",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/replay/pause",
+              "host": ["{{base_url}}"],
+              "path": ["api", "replay", "pause"]
+            },
+            "description": "Pause the current replay"
+          },
+          "response": []
+        },
+        {
+          "name": "Resume Replay",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/replay/resume",
+              "host": ["{{base_url}}"],
+              "path": ["api", "replay", "resume"]
+            },
+            "description": "Resume a paused replay"
+          },
+          "response": []
+        },
+        {
+          "name": "Stop Replay",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/replay/stop",
+              "host": ["{{base_url}}"],
+              "path": ["api", "replay", "stop"]
+            },
+            "description": "Stop replay completely"
+          },
+          "response": []
+        },
+        {
+          "name": "Set Replay Speed",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/replay/speed?speed=2.0",
+              "host": ["{{base_url}}"],
+              "path": ["api", "replay", "speed"],
+              "query": [
+                {
+                  "key": "speed",
+                  "value": "2.0",
+                  "description": "Speed multiplier (0.25-4.0)"
+                }
+              ]
+            },
+            "description": "Change replay speed (0.25x to 4x)"
+          },
+          "response": []
+        },
+        {
+          "name": "Seek to Index",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/replay/seek?index=50",
+              "host": ["{{base_url}}"],
+              "path": ["api", "replay", "seek"],
+              "query": [
+                {
+                  "key": "index",
+                  "value": "50",
+                  "description": "Snapshot index to jump to"
+                }
+              ]
+            },
+            "description": "Jump to specific snapshot index"
+          },
+          "response": []
+        },
+        {
+          "name": "Seek to Percentage",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/replay/seek-percent?percent=50",
+              "host": ["{{base_url}}"],
+              "path": ["api", "replay", "seek-percent"],
+              "query": [
+                {
+                  "key": "percent",
+                  "value": "50",
+                  "description": "Percentage of replay (0-100)"
+                }
+              ]
+            },
+            "description": "Jump to percentage of replay (e.g., 50% = middle)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Candles",
+      "item": [
+        {
+          "name": "Get Available Timeframes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/candles/available-timeframes",
+              "host": ["{{base_url}}"],
+              "path": ["api", "candles", "available-timeframes"]
+            },
+            "description": "Get list of available timeframes (1m, 5m, 15m, 30m, 1h, 4h, daily, 3d)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Candles - All Pairs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/candles/1h?limit=100",
+              "host": ["{{base_url}}"],
+              "path": ["api", "candles", "1h"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "100",
+                  "description": "Number of candles to retrieve"
+                }
+              ]
+            },
+            "description": "Get candles for a specific timeframe (all pairs)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Candles - Specific Pair",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/candles/1m?limit=50&pair=BTCUSD",
+              "host": ["{{base_url}}"],
+              "path": ["api", "candles", "1m"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "pair",
+                  "value": "BTCUSD",
+                  "description": "Filter by specific trading pair"
+                }
+              ]
+            },
+            "description": "Get 1-minute candles for a specific pair"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Latest Candle",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/candles/1h/latest?pair=GOLD",
+              "host": ["{{base_url}}"],
+              "path": ["api", "candles", "1h", "latest"],
+              "query": [
+                {
+                  "key": "pair",
+                  "value": "GOLD",
+                  "description": "Optional: specific pair"
+                }
+              ]
+            },
+            "description": "Get the most recent candle for a timeframe"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Candles by Date Range",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/candles/daily/range?start_date=2026-02-01T00:00:00&end_date=2026-02-12T23:59:59",
+              "host": ["{{base_url}}"],
+              "path": ["api", "candles", "daily", "range"],
+              "query": [
+                {
+                  "key": "start_date",
+                  "value": "2026-02-01T00:00:00",
+                  "description": "ISO format start date"
+                },
+                {
+                  "key": "end_date",
+                  "value": "2026-02-12T23:59:59",
+                  "description": "ISO format end date"
+                }
+              ]
+            },
+            "description": "Get candles within a specific date range"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Candle Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/candles/stats",
+              "host": ["{{base_url}}"],
+              "path": ["api", "candles", "stats"]
+            },
+            "description": "Get statistics about stored candles (counts per timeframe)"
+          },
+          "response": []
+        },
+        {
+          "name": "Regenerate Candles",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/candles/1h/regenerate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "candles", "1h", "regenerate"]
+            },
+            "description": "Regenerate candles for a timeframe from price history"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "WebSocket",
+      "item": [
+        {
+          "name": "WebSocket Connection Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/client-config",
+              "host": ["{{base_url}}"],
+              "path": ["client-config"]
+            },
+            "description": "Get WebSocket URL. Use: ws://localhost:8001/ws/observe to connect"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8001",
+      "type": "string"
+    },
+    {
+      "key": "alert_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "email",
+      "value": "test@example.com",
+      "type": "string"
+    },
+    {
+      "key": "phone",
+      "value": "+1234567890",
+      "type": "string"
+    },
+    {
+      "key": "test_pair",
+      "value": "GOLD",
+      "type": "string"
+    },
+    {
+      "key": "test_target_price",
+      "value": "5100",
+      "type": "string"
+    }
+  ]
+}
