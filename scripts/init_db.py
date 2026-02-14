@@ -14,7 +14,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Add parent directory to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Ensure project root is on sys.path so `import app` works when running
+# this script from the `scripts/` directory.
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 from app.db.database import init_db, test_connection
 
